@@ -1,0 +1,98 @@
+name: Deploy to mitch-cloud
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "index.html"
+      - "deploy/**"
+      - "Dockerfile"
+      - "docker-compose.prod.yml"
+      - ".github/workflows/deploy-vps.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy ghfb to mitch-cloud
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to mitch-cloud
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -e
+
+          ssh ${VPS_USER}@${VPS_HOST} << 'EOF'
+            set -e
+            mkdir -p /opt/360ws/clients/docker-app/ghfb
+            docker network ls --format '{{.Name}}' | grep -q '^360ws-network$' || docker network create 360ws-network
+          EOF
+
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude '.env' \
+            ./ ${VPS_USER}@${VPS_HOST}:/opt/360ws/clients/docker-app/ghfb/
+
+          ssh ${VPS_USER}@${VPS_HOST} << 'EOF'
+            set -e
+            cd /opt/360ws/clients/docker-app/ghfb
+
+            docker compose -f docker-compose.prod.yml build --no-cache
+            docker compose -f docker-compose.prod.yml down || true
+            docker compose -f docker-compose.prod.yml up -d
+
+            echo "Waiting for ghfb-app to be ready..."
+            sleep 5
+
+            echo "Performing health check..."
+            max_attempts=30
+            attempt=0
+            while [ $attempt -lt $max_attempts ]; do
+              if curl -fsS http://localhost:8020/ -o /dev/null; then
+                echo "Health check passed!"
+                break
+              fi
+              attempt=$((attempt + 1))
+              echo "Health check attempt $attempt/$max_attempts failed, retrying..."
+              sleep 2
+            done
+
+            if [ $attempt -eq $max_attempts ]; then
+              echo "Health check failed after $max_attempts attempts."
+              docker compose -f docker-compose.prod.yml logs app
+              exit 1
+            fi
+
+            echo "Deployment successful!"
+          EOF
+
+      - name: Notify Slack on success
+        if: success() && env.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"✅ ghfb deployed successfully to mitch-cloud (ghfb.360web.cloud)"}' \
+            "$SLACK_WEBHOOK"
+
+      - name: Notify Slack on failure
+        if: failure() && env.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ ghfb deployment to mitch-cloud failed"}' \
+            "$SLACK_WEBHOOK"

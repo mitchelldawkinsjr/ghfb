@@ -1,0 +1,31 @@
+# Production stack (VPS): static hub served by nginx.
+# App joins `360ws-network` so NPM can reach it by container name (ghfb-app:80).
+#
+# Prerequisites on the host: `docker network create 360ws-network` (see scripts/vps-bootstrap.sh)
+# NPM Proxy Host: Forward to http://ghfb-app:80
+
+name: ghfb
+
+services:
+  app:
+    build: .
+    container_name: ghfb-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PUBLISH_PORT:-8020}:80"
+    networks:
+      - proxy
+    labels:
+      - "com.360ws.app=ghfb"
+      - "com.360ws.type=docker-app"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  proxy:
+    external: true
+    name: 360ws-network
