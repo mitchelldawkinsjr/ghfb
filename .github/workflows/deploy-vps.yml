@@ -16,12 +16,21 @@ jobs:
     name: Deploy ghfb to mitch-cloud
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    env:
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Verify deploy secrets
+        run: |
+          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+            echo "::error::VPS_SSH_KEY is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          if [ -z "${{ secrets.VPS_HOST }}" ] || [ -z "${{ secrets.VPS_USER }}" ]; then
+            echo "::error::VPS_HOST and VPS_USER must be set in repository secrets."
+            exit 1
+          fi
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -82,17 +91,3 @@ jobs:
 
             echo "Deployment successful!"
           EOF
-
-      - name: Notify Slack on success
-        if: success() && env.SLACK_WEBHOOK != ''
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"✅ ghfb deployed successfully to mitch-cloud (ghfb.360web.cloud)"}' \
-            "$SLACK_WEBHOOK"
-
-      - name: Notify Slack on failure
-        if: failure() && env.SLACK_WEBHOOK != ''
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ ghfb deployment to mitch-cloud failed"}' \
-            "$SLACK_WEBHOOK"

@@ -42,7 +42,6 @@ Reuse the same secrets as other 360web VPS apps:
 - `VPS_SSH_KEY`
 - `VPS_HOST`
 - `VPS_USER`
-- `SLACK_WEBHOOK` *(optional)*
 
 Push to `main` triggers [`.github/workflows/deploy-vps.yml`](.github/workflows/deploy-vps.yml).
 
