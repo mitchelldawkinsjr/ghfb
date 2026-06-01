@@ -2,7 +2,7 @@
 
 Static landing page for Godwin Heights Football apps and resources. Live at **https://ghfb.360web.cloud**.
 
-The hub (`index.html`) links five tools in navy/gold styling. The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
+The hub (`index.html`) links six tools in navy/gold styling. The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
 
 ## Hub links
 
@@ -12,6 +12,7 @@ The hub (`index.html`) links five tools in navy/gold styling. The footer shows t
 | GH Lift | https://ghlift.360web.cloud/ |
 | Summer Attendance Form | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) |
 | Attendance Dashboard | https://ghfb.360web.cloud/attendance-dashboard.html |
+| 2026 Schedule | https://ghfb.360web.cloud/schedule.html |
 | Team Drive | [Google Drive](https://drive.google.com/drive/folders/18J5gEtYQynNmm1pXk7EjgjFzI_Hnko7I?usp=drive_link) |
 
 **Not on the hub:** Team Weightroom Tracker is hidden for now; the app repo remains linked below for maintainers.
@@ -30,12 +31,18 @@ The hub (`index.html`) links five tools in navy/gold styling. The footer shows t
 
 To point at a different sheet, update the `csvUrl` in `attendance-dashboard.html`.
 
+### Install as app (PWA)
+
+The attendance dashboard is installable on phone or desktop (Chrome/Safari/Edge → **Install app** or **Add to Home Screen**). It uses the Godwin Heights Football logo from `icons/` and opens directly to `/attendance-dashboard.html`. Attendance data still loads live from Google Sheets when online.
+
 ## Repo layout
 
 | File | Purpose |
 |------|---------|
 | `index.html` | Team tools hub |
-| `attendance-dashboard.html` | Live attendance dashboard |
+| `schedule.html` / `images/schedule-2026.jpg` | 2026 varsity schedule graphic |
+| `attendance-dashboard.html` | Live attendance dashboard (PWA) |
+| `manifest.webmanifest` / `sw.js` / `icons/` | PWA install + offline shell |
 | `Dockerfile` / `deploy/nginx.conf` | nginx static image |
 | `docker-compose.prod.yml` | `ghfb-app` on `360ws-network`, port 8020 |
 | `.github/workflows/deploy-vps.yml` | rsync + compose deploy on push to `main` |

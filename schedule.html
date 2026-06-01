@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026 Godwin Football Schedule</title>
+  <meta name="description" content="2026 Godwin Heights Football varsity schedule — dates, opponents, and home/away." />
+  <meta name="theme-color" content="#0a0c10" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg0: #0a0c10;
+      --bg1: #12161e;
+      --card: #181e2a;
+      --border: rgba(212, 175, 55, 0.25);
+      --text: #e8eaef;
+      --muted: #8b93a7;
+      --accent: #e5a32a;
+      --font: "Instrument Sans", system-ui, -apple-system, sans-serif;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: linear-gradient(165deg, var(--bg0) 0%, var(--bg1) 55%, #0f1520 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .shell {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .back {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .back:hover { text-decoration: underline; }
+    h1 {
+      font-size: clamp(1.35rem, 4vw, 1.75rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9375rem;
+      margin-bottom: 20px;
+    }
+    .frame {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+    .frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+    .sr-table {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="top">
+      <a class="back" href="/">← Team Tools</a>
+    </div>
+    <h1>2026 Godwin Football Schedule</h1>
+    <p class="subtitle">All games at 7:00 PM unless noted on the graphic.</p>
+
+    <div class="frame">
+      <img
+        src="/images/schedule-2026.jpg"
+        width="819"
+        height="1024"
+        alt="2026 Godwin Football schedule: Aug 27 Holland Away; Sep 4 Fruitport Home; Sep 11 Comstock Park Home; Sep 18 NorthPointe Christian Home; Sep 25 Hopkins Away; Oct 2 Calvin Christian Away; Oct 9 Belding Home; Oct 16 Newaygo Away; Oct 23 Kelloggsville Away; Oct 30 MHSAA Playoffs."
+      />
+    </div>
+
+    <table class="sr-table">
+      <caption>2026 Godwin Football Schedule</caption>
+      <thead>
+        <tr><th>Date</th><th>Opponent</th><th>Location</th><th>Time</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Aug 27</td><td>Holland</td><td>Away</td><td>7:00 PM</td></tr>
+        <tr><td>Sep 4</td><td>Fruitport</td><td>Home</td><td>7:00 PM</td></tr>
+        <tr><td>Sep 11</td><td>Comstock Park</td><td>Home</td><td>7:00 PM</td></tr>
+        <tr><td>Sep 18</td><td>NorthPointe Christian</td><td>Home</td><td>7:00 PM</td></tr>
+        <tr><td>Sep 25</td><td>Hopkins</td><td>Away</td><td>7:00 PM</td></tr>
+        <tr><td>Oct 2</td><td>Calvin Christian</td><td>Away</td><td>7:00 PM</td></tr>
+        <tr><td>Oct 9</td><td>Belding</td><td>Home</td><td>7:00 PM</td></tr>
+        <tr><td>Oct 16</td><td>Newaygo</td><td>Away</td><td>7:00 PM</td></tr>
+        <tr><td>Oct 23</td><td>Kelloggsville</td><td>Away</td><td>7:00 PM</td></tr>
+        <tr><td>Oct 30</td><td>MHSAA Playoffs</td><td>—</td><td>7:00 PM</td></tr>
+      </tbody>
+    </table>
+
+    <footer id="siteFooter">Godwin Heights Football</footer>
+  </div>
+  <script>
+    function getSeasonLabel(date = new Date()) {
+      const month = date.getMonth();
+      if (month >= 5 && month <= 7) return "Summer";
+      if (month >= 8 && month <= 10) return "Fall";
+      if (month === 11 || month <= 1) return "Winter";
+      return "Spring";
+    }
+    const footer = document.getElementById("siteFooter");
+    if (footer) {
+      const now = new Date();
+      footer.textContent = `Godwin Heights Football · ${getSeasonLabel(now)} ${now.getFullYear()}`;
+    }
+  </script>
+</body>
+</html>
