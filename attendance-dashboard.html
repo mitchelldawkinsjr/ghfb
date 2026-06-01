@@ -286,7 +286,7 @@
 
       const ironMenThresholdRate = 35 / 42;
       const validAttendanceIndexes = getValidAttendanceIndexes(rows[0] || [], attendanceStartIdx);
-      const totalPossible = Math.max(0, validAttendanceIndexes.length - 3);
+      const totalPossible = validAttendanceIndexes.length;
       const lastSevenIndexes = validAttendanceIndexes.slice(-7);
       const playerTotals = dataRows.map((row) => {
         const name = `${row[firstNameIdx]} ${row[lastNameIdx]}`.trim();
