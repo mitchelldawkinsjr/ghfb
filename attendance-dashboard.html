@@ -58,6 +58,12 @@
       margin: 6px 0 0;
       color: var(--muted);
     }
+    .summary-box small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
     .ironmen-names {
       margin-top: 10px;
       color: var(--good);
@@ -107,6 +113,29 @@
       margin-bottom: 16px;
       font-weight: 600;
     }
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.3);
+      flex: 0 0 16px;
+    }
   </style>
 </head>
 <body>
@@ -128,6 +157,11 @@
       <p>Ironmen (Rolling Avg ≥ 35/42)</p>
       <div id="ironMenNames" class="ironmen-names"></div>
     </div>
+    <div class="summary-box">
+      <h2 id="momentumRate">0.0%</h2>
+      <p>Momentum (Last 7 Sessions)</p>
+      <small id="momentumMeta">0 sessions loaded</small>
+    </div>
   </div>
 
   <div class="card">
@@ -136,6 +170,19 @@
 
   <div class="card table-wrap">
     <table id="attendanceTable"></table>
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 10px;">Sheet Color Legend</h3>
+    <p style="margin:0 0 12px; color: var(--muted); font-size: 14px;">
+      Mirrored from the workbook key (`2026 Summer WR & Conditioning`).
+    </p>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="swatch" style="background:#9FC5E8;"></span>Conditioning</div>
+      <div class="legend-item"><span class="swatch" style="background:#FFE599;"></span>Weightroom</div>
+      <div class="legend-item"><span class="swatch" style="background:#F4CCCC;"></span>No Attendance</div>
+      <div class="legend-item"><span class="swatch" style="background:#F9CB9C;"></span>Missed 24 for Summer</div>
+    </div>
   </div>
 
   <script>
@@ -240,6 +287,7 @@
       const ironMenThresholdRate = 35 / 42;
       const validAttendanceIndexes = getValidAttendanceIndexes(rows[0] || [], attendanceStartIdx);
       const totalPossible = Math.max(0, validAttendanceIndexes.length - 3);
+      const lastSevenIndexes = validAttendanceIndexes.slice(-7);
       const playerTotals = dataRows.map((row) => {
         const name = `${row[firstNameIdx]} ${row[lastNameIdx]}`.trim();
         const marks = validAttendanceIndexes.filter(
@@ -259,6 +307,18 @@
       document.getElementById("ironMenNames").textContent = ironMen.length
         ? ironMen.map((p) => `${p.name} (${formatPct(p.rollingRate)})`).join(", ")
         : `No players at ${formatPct(ironMenThresholdRate)} yet (${totalPossible} possible as of today)`;
+
+      const momentumMarks = dataRows.reduce((sum, row) => {
+        const rowMarks = lastSevenIndexes.filter(
+          (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
+        ).length;
+        return sum + rowMarks;
+      }, 0);
+      const momentumPossible = dataRows.length * lastSevenIndexes.length;
+      const momentumRate = momentumPossible > 0 ? momentumMarks / momentumPossible : 0;
+      document.getElementById("momentumRate").textContent = formatPct(momentumRate);
+      document.getElementById("momentumMeta").textContent =
+        `${lastSevenIndexes.length} sessions · ${momentumMarks}/${momentumPossible} marks`;
 
       return { playerTotals, totalPossible };
     }
