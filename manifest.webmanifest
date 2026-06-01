@@ -1,9 +1,9 @@
 {
-  "id": "/attendance-dashboard.html",
+  "id": "/",
   "name": "Godwin Heights Football",
   "short_name": "GH Football",
-  "description": "Summer WR and conditioning attendance dashboard for Godwin Heights Football.",
-  "start_url": "/attendance-dashboard.html",
+  "description": "Team tools hub for Godwin Heights Football — film, lift, attendance, schedule, and files.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

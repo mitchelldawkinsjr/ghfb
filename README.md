@@ -33,15 +33,15 @@ To point at a different sheet, update the `csvUrl` in `attendance-dashboard.html
 
 ### Install as app (PWA)
 
-The attendance dashboard is installable on phone or desktop (Chrome/Safari/Edge → **Install app** or **Add to Home Screen**). Icons live in `icons/` (32, 192, 180 Apple touch, 512, and a maskable 512 on the navy background). `manifest.webmanifest` and the dashboard `<head>` both reference them. Attendance data still loads live from Google Sheets when online.
+The team tools hub (`index.html`) is installable on phone or desktop — use **Add to Home Screen** on the hub or Chrome/Edge **Install app**. Icons live in `icons/`; `manifest.webmanifest` opens to `/`. The attendance dashboard loads live data from Google Sheets when online.
 
 ## Repo layout
 
 | File | Purpose |
 |------|---------|
-| `index.html` | Team tools hub |
+| `index.html` | Team tools hub (PWA entry + install banner) |
 | `schedule.html` / `images/schedule-2026.jpg` | 2026 varsity schedule graphic |
-| `attendance-dashboard.html` | Live attendance dashboard (PWA) |
+| `attendance-dashboard.html` | Live attendance dashboard |
 | `manifest.webmanifest` / `sw.js` / `icons/` | PWA install + offline shell |
 | `Dockerfile` / `deploy/nginx.conf` | nginx static image |
 | `docker-compose.prod.yml` | `ghfb-app` on `360ws-network`, port 8020 |

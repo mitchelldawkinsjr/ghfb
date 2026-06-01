@@ -1,6 +1,7 @@
-const CACHE = "ghfb-attendance-v3";
+const CACHE = "ghfb-hub-v4";
 const PRECACHE = [
-  "/attendance-dashboard.html",
+  "/",
+  "/index.html",
   "/manifest.webmanifest",
   "/icons/icon-32.png",
   "/icons/icon-192.png",
