@@ -125,7 +125,7 @@
     </div>
     <div class="summary-box">
       <h2 id="ironMenNumber">0</h2>
-      <p>Ironmen (35 of 42+ Attendances)</p>
+      <p>Ironmen (35 of 42 Attendances)</p>
       <div id="ironMenNames" class="ironmen-names"></div>
     </div>
   </div>
@@ -197,6 +197,40 @@
       return rows;
     }
 
+    function parseHeaderDate(value) {
+      const text = String(value ?? "").trim();
+      const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (!match) return null;
+      let year = Number(match[3]);
+      if (year < 100) year += 2000;
+      const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
+      date.setHours(0, 0, 0, 0);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    // Mirrors rollingAttendance() column selection from Apps Script.
+    function getValidAttendanceIndexes(headers, attendanceStartIdx) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const indexes = [];
+
+      for (let col = attendanceStartIdx; col < headers.length; col++) {
+        const header = String(headers[col] ?? "").trim();
+        const dateVal = parseHeaderDate(header);
+
+        if (dateVal) {
+          if (dateVal > today) break; // stop at first future date
+          indexes.push(col);
+          continue;
+        }
+
+        if (header.toUpperCase() === "C") {
+          indexes.push(col);
+        }
+      }
+      return indexes;
+    }
+
     function buildSummary(rows) {
       const dataRows = rows.slice(1).filter((row) => row[0] && row[1]);
       const firstNameIdx = 0;
@@ -204,9 +238,13 @@
       const attendanceStartIdx = 2;
 
       const ironMenThreshold = 35;
+      const validAttendanceIndexes = getValidAttendanceIndexes(rows[0] || [], attendanceStartIdx);
+      const totalPossible = Math.max(0, validAttendanceIndexes.length - 3);
       const playerTotals = dataRows.map((row) => {
         const name = `${row[firstNameIdx]} ${row[lastNameIdx]}`.trim();
-        const marks = row.slice(attendanceStartIdx).filter((cell) => cell.toUpperCase() === "X").length;
+        const marks = validAttendanceIndexes.filter(
+          (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
+        ).length;
         return { name, marks };
       });
 
@@ -218,7 +256,7 @@
       document.getElementById("ironMenNumber").textContent = ironMen.length;
       document.getElementById("ironMenNames").textContent = ironMen.length
         ? ironMen.map((p) => p.name).join(", ")
-        : "No perfect attendance yet";
+        : `No players at ${ironMenThreshold}+ yet (${totalPossible} possible as of today)`;
 
       return { playerTotals };
     }
