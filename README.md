@@ -2,6 +2,8 @@
 
 Static landing page for Godwin Heights Football apps and resources. Live at **https://ghfb.360web.cloud**.
 
+The hub (`index.html`) links five tools in navy/gold styling. The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
+
 ## Hub links
 
 | Tool | URL |
@@ -9,8 +11,34 @@ Static landing page for Godwin Heights Football apps and resources. Live at **ht
 | Film Review Hub | https://mitchelldawkinsjr.github.io/GH-Flim-Review/ |
 | GH Lift | https://ghlift.360web.cloud/ |
 | Summer Attendance Form | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) |
-| Team Dashboard | `/attendance-dashboard.html` (live CSV + Ironmen calculations) |
+| Attendance Dashboard | https://ghfb.360web.cloud/attendance-dashboard.html |
 | Team Drive | [Google Drive](https://drive.google.com/drive/folders/18J5gEtYQynNmm1pXk7EjgjFzI_Hnko7I?usp=drive_link) |
+
+**Not on the hub:** Team Weightroom Tracker is hidden for now; the app repo remains linked below for maintainers.
+
+## Attendance dashboard
+
+`attendance-dashboard.html` loads a published Google Sheets CSV (`2026 Summer WR & Conditioning`) and mirrors the workbook’s rolling attendance logic:
+
+- **Column selection:** Same rules as Apps Script `rollingAttendance()` — dated weightroom columns through today, plus `C` conditioning columns; stops at the first future date.
+- **Rolling rate:** Attendance marks ÷ valid session columns (no extra denominator offset).
+- **Ironmen:** Players at or above **35/42** (~83.3%) rolling average.
+- **Momentum:** Team attendance rate over the last seven valid sessions.
+- **Chart:** Bar chart of each player’s rolling percentage.
+- **Table:** Scrollable roster; Jersey # and Grade hidden; row colors inferred from session type (weightroom vs conditioning), `X` marks, empty cells, and a “missed 24+” highlight when applicable (CSV has no fill colors).
+- **Legend:** On-page key matching workbook colors (Conditioning, Weightroom, No Attendance, Missed 24 for Summer).
+
+To point at a different sheet, update the `csvUrl` in `attendance-dashboard.html`.
+
+## Repo layout
+
+| File | Purpose |
+|------|---------|
+| `index.html` | Team tools hub |
+| `attendance-dashboard.html` | Live attendance dashboard |
+| `Dockerfile` / `deploy/nginx.conf` | nginx static image |
+| `docker-compose.prod.yml` | `ghfb-app` on `360ws-network`, port 8020 |
+| `.github/workflows/deploy-vps.yml` | rsync + compose deploy on push to `main` |
 
 ## Local preview
 
@@ -20,7 +48,8 @@ open index.html
 
 # Or run the production Docker stack locally:
 docker compose -f docker-compose.prod.yml up --build
-open http://localhost:8020
+open http://localhost:8020/
+open http://localhost:8020/attendance-dashboard.html
 ```
 
 ## Deployment (VPS)
