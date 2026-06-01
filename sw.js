@@ -1,4 +1,4 @@
-const CACHE = "ghfb-hub-v4";
+const CACHE = "ghfb-hub-v5";
 const PRECACHE = [
   "/",
   "/index.html",
