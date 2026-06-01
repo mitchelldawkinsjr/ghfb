@@ -1,9 +1,11 @@
-const CACHE = "ghfb-attendance-v1";
+const CACHE = "ghfb-attendance-v2";
 const PRECACHE = [
   "/attendance-dashboard.html",
   "/manifest.webmanifest",
+  "/icons/icon-32.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/icon-maskable-512.png",
   "/icons/apple-touch-icon.png",
   "https://cdn.jsdelivr.net/npm/chart.js",
 ];

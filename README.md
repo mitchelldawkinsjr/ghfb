@@ -33,7 +33,7 @@ To point at a different sheet, update the `csvUrl` in `attendance-dashboard.html
 
 ### Install as app (PWA)
 
-The attendance dashboard is installable on phone or desktop (Chrome/Safari/Edge → **Install app** or **Add to Home Screen**). It uses the Godwin Heights Football logo from `icons/` and opens directly to `/attendance-dashboard.html`. Attendance data still loads live from Google Sheets when online.
+The attendance dashboard is installable on phone or desktop (Chrome/Safari/Edge → **Install app** or **Add to Home Screen**). Icons live in `icons/` (32, 192, 180 Apple touch, 512, and a maskable 512 on the navy background). `manifest.webmanifest` and the dashboard `<head>` both reference them. Attendance data still loads live from Google Sheets when online.
 
 ## Repo layout
 
