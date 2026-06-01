@@ -259,10 +259,19 @@
     function buildTable(rows) {
       const table = document.getElementById("attendanceTable");
       table.innerHTML = "";
+      const hiddenHeaders = new Set(["Jersey #", "Grade"]);
+      const headerRow = rows[0] || [];
+      const hiddenIndexes = new Set(
+        headerRow
+          .map((name, idx) => ({ name: name.trim(), idx }))
+          .filter((c) => hiddenHeaders.has(c.name))
+          .map((c) => c.idx)
+      );
 
       rows.forEach((row, rowIndex) => {
         const tr = document.createElement("tr");
-        row.forEach((cell) => {
+        row.forEach((cell, colIndex) => {
+          if (hiddenIndexes.has(colIndex)) return;
           const cellElement = document.createElement(rowIndex === 0 ? "th" : "td");
           cellElement.textContent = cell;
           tr.appendChild(cellElement);
