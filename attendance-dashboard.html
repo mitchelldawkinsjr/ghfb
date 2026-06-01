@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026 Summer WR and Conditioning Attendance</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg0: #0a0c10;
+      --bg1: #12161e;
+      --card: #181e2a;
+      --border: rgba(212, 175, 55, 0.25);
+      --text: #e8eaef;
+      --muted: #8b93a7;
+      --accent: #e5a32a;
+      --good: #5dd39e;
+      --font: "Instrument Sans", Arial, sans-serif;
+    }
+    body {
+      font-family: var(--font);
+      background: linear-gradient(165deg, var(--bg0) 0%, var(--bg1) 55%, #0f1520 100%);
+      margin: 0;
+      padding: 24px;
+      color: var(--text);
+    }
+    h1 {
+      text-align: center;
+      margin: 0 0 10px;
+    }
+    .subtitle {
+      text-align: center;
+      margin: 0 0 30px;
+      color: var(--muted);
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+      max-width: 1100px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .summary-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      text-align: center;
+    }
+    .summary-box h2 {
+      margin: 0;
+      font-size: 32px;
+      color: var(--accent);
+    }
+    .summary-box p {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+    .ironmen-names {
+      margin-top: 10px;
+      color: var(--good);
+      font-size: 13px;
+      min-height: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin: 0 auto 24px;
+      max-width: 1100px;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      padding: 8px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    th {
+      background: #111827;
+      color: white;
+      position: sticky;
+      top: 0;
+    }
+    td:first-child,
+    td:nth-child(2),
+    th:first-child,
+    th:nth-child(2) {
+      text-align: left;
+      font-weight: bold;
+    }
+    .back-link {
+      display: inline-block;
+      color: var(--accent);
+      text-decoration: none;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/">← Back to Team Tools</a>
+  <h1>2026 Summer WR and Conditioning Attendance</h1>
+  <p class="subtitle">Live dashboard powered by Google Sheets CSV</p>
+
+  <div class="summary">
+    <div class="summary-box">
+      <h2 id="totalPlayers">0</h2>
+      <p>Total Players</p>
+    </div>
+    <div class="summary-box">
+      <h2 id="totalMarks">0</h2>
+      <p>Total X Marks</p>
+    </div>
+    <div class="summary-box">
+      <h2 id="topPlayer">N/A</h2>
+      <p>Top Attendance</p>
+    </div>
+    <div class="summary-box">
+      <h2 id="ironMenNumber">0</h2>
+      <p>Ironmen (Perfect Attendance)</p>
+      <div id="ironMenNames" class="ironmen-names"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <canvas id="attendanceChart"></canvas>
+  </div>
+
+  <div class="card table-wrap">
+    <table id="attendanceTable"></table>
+  </div>
+
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-oEpo0pvk7YAWpv2jAhyqmWeIYVEZRRXliKY6uY-_NGZwE3rl28BG2HSSLtamqfeTLvR5AT8ywh28/pub?gid=585894674&single=true&output=csv";
+
+    fetch(csvUrl)
+      .then((response) => response.text())
+      .then((csv) => {
+        const rows = parseCSV(csv).filter((r) => r.some((c) => c !== ""));
+        if (rows.length < 2) throw new Error("No attendance rows found");
+
+        const summary = buildSummary(rows);
+        buildChart(summary.playerTotals);
+        buildTable(rows);
+      })
+      .catch((error) => {
+        console.error("Error loading CSV:", error);
+        const msg = document.createElement("p");
+        msg.textContent = "Could not load attendance data.";
+        document.body.appendChild(msg);
+      });
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let value = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const next = text[i + 1];
+
+        if (ch === "\"") {
+          if (inQuotes && next === "\"") {
+            value += "\"";
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          row.push(value.trim());
+          value = "";
+        } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+          if (ch === "\r" && next === "\n") i++;
+          row.push(value.trim());
+          rows.push(row);
+          row = [];
+          value = "";
+        } else {
+          value += ch;
+        }
+      }
+
+      if (value.length || row.length) {
+        row.push(value.trim());
+        rows.push(row);
+      }
+
+      return rows;
+    }
+
+    function buildSummary(rows) {
+      const dataRows = rows.slice(1).filter((row) => row[0] && row[1]);
+      const firstNameIdx = 0;
+      const lastNameIdx = 1;
+      const attendanceStartIdx = 2;
+
+      const maxPossibleMarks = Math.max(0, rows[0].length - attendanceStartIdx);
+      const playerTotals = dataRows.map((row) => {
+        const name = `${row[firstNameIdx]} ${row[lastNameIdx]}`.trim();
+        const marks = row.slice(attendanceStartIdx).filter((cell) => cell.toUpperCase() === "X").length;
+        return { name, marks };
+      });
+
+      const totalMarks = playerTotals.reduce((sum, p) => sum + p.marks, 0);
+      const top = [...playerTotals].sort((a, b) => b.marks - a.marks)[0];
+      const ironMen = playerTotals.filter((p) => p.marks === maxPossibleMarks && maxPossibleMarks > 0);
+
+      document.getElementById("totalPlayers").textContent = dataRows.length;
+      document.getElementById("totalMarks").textContent = totalMarks;
+      document.getElementById("topPlayer").textContent = top ? `${top.name} (${top.marks})` : "N/A";
+      document.getElementById("ironMenNumber").textContent = ironMen.length;
+      document.getElementById("ironMenNames").textContent = ironMen.length
+        ? ironMen.map((p) => p.name).join(", ")
+        : "No perfect attendance yet";
+
+      return { playerTotals };
+    }
+
+    function buildChart(playerTotals) {
+      const playerNames = playerTotals.map((p) => p.name);
+      const attendanceTotals = playerTotals.map((p) => p.marks);
+
+      new Chart(document.getElementById("attendanceChart"), {
+        type: "bar",
+        data: {
+          labels: playerNames,
+          datasets: [{
+            label: "Total Attendance Marks",
+            data: attendanceTotals,
+            backgroundColor: "rgba(229, 163, 42, 0.7)",
+            borderColor: "rgba(229, 163, 42, 1)",
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: "#e8eaef" } }
+          },
+          scales: {
+            x: { ticks: { color: "#e8eaef" } },
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, color: "#e8eaef" },
+              grid: { color: "rgba(255, 255, 255, 0.12)" }
+            }
+          }
+        }
+      });
+    }
+
+    function buildTable(rows) {
+      const table = document.getElementById("attendanceTable");
+      table.innerHTML = "";
+
+      rows.forEach((row, rowIndex) => {
+        const tr = document.createElement("tr");
+        row.forEach((cell) => {
+          const cellElement = document.createElement(rowIndex === 0 ? "th" : "td");
+          cellElement.textContent = cell;
+          tr.appendChild(cellElement);
+        });
+        table.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
