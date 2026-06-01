@@ -99,6 +99,29 @@
       position: sticky;
       top: 0;
     }
+    th.col-weightroom,
+    td.col-weightroom {
+      background: #ffe599;
+      color: #111827;
+    }
+    th.col-conditioning,
+    td.col-conditioning {
+      background: #9fc5e8;
+      color: #111827;
+    }
+    td.col-no-attendance {
+      background: #f4cccc;
+      color: #111827;
+    }
+    td.col-missed24 {
+      background: #f9cb9c;
+      color: #111827;
+    }
+    th.col-meta,
+    td.col-meta {
+      background: #111827;
+      color: #fff;
+    }
     td:first-child,
     td:nth-child(2),
     th:first-child,
@@ -256,6 +279,24 @@
     }
 
     // Mirrors rollingAttendance() column selection from Apps Script.
+    const MISSED_24_THRESHOLD = 24;
+
+    function getColumnKind(header) {
+      const text = String(header ?? "").trim();
+      if (text.toUpperCase() === "C") return "conditioning";
+      if (parseHeaderDate(text)) return "weightroom";
+      return "other";
+    }
+
+    function formatHeaderLabel(header) {
+      const text = String(header ?? "").trim();
+      const dateVal = parseHeaderDate(text);
+      if (dateVal) {
+        return `${dateVal.getMonth() + 1}/${dateVal.getDate()}/${dateVal.getFullYear()}`;
+      }
+      return text;
+    }
+
     function getValidAttendanceIndexes(headers, attendanceStartIdx) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -366,19 +407,66 @@
       table.innerHTML = "";
       const hiddenHeaders = new Set(["Jersey #", "Grade"]);
       const headerRow = rows[0] || [];
+      const attendanceStartIdx = 2;
       const hiddenIndexes = new Set(
         headerRow
           .map((name, idx) => ({ name: name.trim(), idx }))
           .filter((c) => hiddenHeaders.has(c.name))
           .map((c) => c.idx)
       );
+      const columnKinds = headerRow.map((header) => getColumnKind(header));
+      const validAttendanceIndexes = new Set(
+        getValidAttendanceIndexes(headerRow, attendanceStartIdx)
+      );
 
       rows.forEach((row, rowIndex) => {
         const tr = document.createElement("tr");
+        let rowMissed24 = false;
+
+        if (rowIndex > 0) {
+          const marks = [...validAttendanceIndexes].filter(
+            (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
+          ).length;
+          const missed = validAttendanceIndexes.size - marks;
+          rowMissed24 = missed >= MISSED_24_THRESHOLD;
+        }
+
         row.forEach((cell, colIndex) => {
           if (hiddenIndexes.has(colIndex)) return;
-          const cellElement = document.createElement(rowIndex === 0 ? "th" : "td");
-          cellElement.textContent = cell;
+
+          const kind = columnKinds[colIndex] || "other";
+          const isHeader = rowIndex === 0;
+          const cellElement = document.createElement(isHeader ? "th" : "td");
+          const displayValue = isHeader ? formatHeaderLabel(cell) : cell;
+          cellElement.textContent = displayValue;
+
+          if (colIndex <= 1) {
+            cellElement.classList.add("col-meta");
+            if (!isHeader && rowMissed24) {
+              cellElement.classList.add("col-missed24");
+            }
+            tr.appendChild(cellElement);
+            return;
+          }
+
+          if (isHeader) {
+            if (kind === "weightroom") cellElement.classList.add("col-weightroom");
+            if (kind === "conditioning") cellElement.classList.add("col-conditioning");
+            tr.appendChild(cellElement);
+            return;
+          }
+
+          const cellValue = String(cell ?? "").trim().toUpperCase();
+          if (cellValue === "X") {
+            cellElement.classList.add(
+              kind === "conditioning" ? "col-conditioning" : "col-weightroom"
+            );
+          } else if (validAttendanceIndexes.has(colIndex)) {
+            cellElement.classList.add(
+              rowMissed24 ? "col-missed24" : "col-no-attendance"
+            );
+          }
+
           tr.appendChild(cellElement);
         });
         table.appendChild(tr);
