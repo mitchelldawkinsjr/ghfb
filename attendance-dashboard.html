@@ -339,7 +339,7 @@
   <h1>2026 Summer WR and Conditioning Attendance</h1>
   <p class="subtitle">Live dashboard powered by Google Sheets CSV</p>
 
-  <div id="installCta" class="install-cta" hidden>
+  <div id="installCta" class="install-cta">
     <img class="install-cta-icon" src="/icons/icon-192.png" width="52" height="52" alt="" />
     <div class="install-cta-copy">
       <strong>Install Godwin Heights Football</strong>
@@ -693,11 +693,11 @@
         );
       }
 
-      function isIosSafari() {
-        const ua = navigator.userAgent;
-        const isIos = /iphone|ipad|ipod/i.test(ua);
-        const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
-        return isIos && isSafari;
+      function isIos() {
+        return (
+          /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+        );
       }
 
       function wasDismissedRecently() {
@@ -744,7 +744,7 @@
           if (outcome === "accepted") hideCta();
           return;
         }
-        if (isIosSafari()) {
+        if (isIos()) {
           openIosModal();
           return;
         }
@@ -754,7 +754,7 @@
         if (title) title.textContent = "Install this app";
         if (text) {
           text.textContent =
-            "In Chrome or Edge, use the menu (⋮) and choose Install app, or Add to Home Screen. In Safari on iPhone, use Share → Add to Home Screen.";
+            "In Chrome or Edge, open the browser menu (⋮) and choose Install app or Add to Home Screen.";
         }
       });
 
@@ -768,14 +768,11 @@
         if (event.target === modalBackdrop) closeIosModal();
       });
 
+      // Show for all visitors unless already installed or dismissed
       if (!isStandalone() && !wasDismissedRecently()) {
-        if (isIosSafari()) showCta();
-        else {
-          window.setTimeout(() => {
-            if (!deferredPrompt && !isStandalone() && !wasDismissedRecently()) return;
-            if (deferredPrompt) showCta();
-          }, 800);
-        }
+        showCta();
+      } else {
+        hideCta();
       }
     })();
 

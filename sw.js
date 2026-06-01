@@ -1,4 +1,4 @@
-const CACHE = "ghfb-attendance-v2";
+const CACHE = "ghfb-attendance-v3";
 const PRECACHE = [
   "/attendance-dashboard.html",
   "/manifest.webmanifest",
@@ -24,6 +24,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function isHtmlRequest(request, url) {
+  if (request.mode === "navigate") return true;
+  const path = url.pathname;
+  return path.endsWith(".html") || request.destination === "document";
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -45,6 +51,21 @@ self.addEventListener("fetch", (event) => {
       );
       return;
     }
+    return;
+  }
+
+  if (isHtmlRequest(request, url)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
     return;
   }
 
