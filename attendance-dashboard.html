@@ -361,13 +361,21 @@
 
     function parseHeaderDate(value) {
       const text = String(value ?? "").trim();
-      const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-      if (!match) return null;
-      let year = Number(match[3]);
-      if (year < 100) year += 2000;
-      const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
-      date.setHours(0, 0, 0, 0);
-      return Number.isNaN(date.getTime()) ? null : date;
+      let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (match) {
+        let year = Number(match[3]);
+        if (year < 100) year += 2000;
+        const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
+        date.setHours(0, 0, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+      match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (match) {
+        const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+        date.setHours(0, 0, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+      return null;
     }
 
     function getColumnKind(header) {
@@ -408,16 +416,20 @@
       return indexes;
     }
 
-    function getTableColumnIndexes(headerRow) {
-      const hidden = new Set(
+    function getHiddenColumnIndexes(headerRow) {
+      return new Set(
         headerRow
           .map((name, idx) => ({ name: String(name ?? "").trim(), idx }))
           .filter((c) => HIDDEN_HEADERS.has(c.name))
           .map((c) => c.idx)
       );
-      const valid = getValidAttendanceIndexes(headerRow, ATTENDANCE_START_IDX);
-      const cols = NAME_COLS.filter((i) => !hidden.has(i));
-      for (const idx of valid) {
+    }
+
+    /** All sheet columns except Jersey # / Grade — includes every date & conditioning column. */
+    function getTableColumnIndexes(headerRow) {
+      const hidden = getHiddenColumnIndexes(headerRow);
+      const cols = [];
+      for (let idx = 0; idx < headerRow.length; idx++) {
         if (!hidden.has(idx)) cols.push(idx);
       }
       return cols;
@@ -505,6 +517,10 @@
               cellEl.classList.add(kind === "conditioning" ? "col-conditioning" : "col-weightroom");
             } else if (validSet.has(colIndex)) {
               cellEl.classList.add(rowMissed24 ? "col-missed24" : "col-no-attendance");
+            } else if (kind === "weightroom") {
+              cellEl.classList.add("col-weightroom");
+            } else if (kind === "conditioning") {
+              cellEl.classList.add("col-conditioning");
             }
           }
 
