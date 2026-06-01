@@ -208,7 +208,22 @@
       </a>
     </div>
 
-    <footer>Godwin Heights Football · Summer 2025</footer>
+    <footer id="siteFooter">Godwin Heights Football</footer>
   </div>
+  <script>
+    function getSeasonLabel(date = new Date()) {
+      const month = date.getMonth();
+      if (month >= 5 && month <= 7) return "Summer";
+      if (month >= 8 && month <= 10) return "Fall";
+      if (month === 11 || month <= 1) return "Winter";
+      return "Spring";
+    }
+
+    const footer = document.getElementById("siteFooter");
+    if (footer) {
+      const now = new Date();
+      footer.textContent = `Godwin Heights Football · ${getSeasonLabel(now)} ${now.getFullYear()}`;
+    }
+  </script>
 </body>
 </html>
