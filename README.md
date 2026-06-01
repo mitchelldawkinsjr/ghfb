@@ -11,7 +11,6 @@ Static landing page for Godwin Heights Football apps and resources. Live at **ht
 | Summer Attendance | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) |
 | Team Dashboard | `/attendance-dashboard.html` (live CSV + Ironmen calculations) |
 | Team Drive | [Google Drive](https://drive.google.com/drive/folders/18J5gEtYQynNmm1pXk7EjgjFzI_Hnko7I?usp=drive_link) |
-| Team Weightroom Tracker | https://github.com/mitchelldawkinsjr/team-weightroom-tracker *(coming soon)* |
 
 ## Local preview
 
