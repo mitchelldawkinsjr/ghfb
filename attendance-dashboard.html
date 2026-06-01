@@ -121,11 +121,11 @@
     </div>
     <div class="summary-box">
       <h2 id="topPlayer">N/A</h2>
-      <p>Top Attendance</p>
+      <p>Top Rolling Attendance</p>
     </div>
     <div class="summary-box">
       <h2 id="ironMenNumber">0</h2>
-      <p>Ironmen (35 of 42 Attendances)</p>
+      <p>Ironmen (Rolling Avg ≥ 35/42)</p>
       <div id="ironMenNames" class="ironmen-names"></div>
     </div>
   </div>
@@ -237,7 +237,7 @@
       const lastNameIdx = 1;
       const attendanceStartIdx = 2;
 
-      const ironMenThreshold = 35;
+      const ironMenThresholdRate = 35 / 42;
       const validAttendanceIndexes = getValidAttendanceIndexes(rows[0] || [], attendanceStartIdx);
       const totalPossible = Math.max(0, validAttendanceIndexes.length - 3);
       const playerTotals = dataRows.map((row) => {
@@ -245,33 +245,35 @@
         const marks = validAttendanceIndexes.filter(
           (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
         ).length;
-        return { name, marks };
+        const rollingRate = totalPossible > 0 ? marks / totalPossible : 0;
+        return { name, marks, rollingRate };
       });
 
-      const top = [...playerTotals].sort((a, b) => b.marks - a.marks)[0];
-      const ironMen = playerTotals.filter((p) => p.marks >= ironMenThreshold);
+      const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
+      const ironMen = playerTotals.filter((p) => p.rollingRate >= ironMenThresholdRate);
+      const formatPct = (v) => `${(v * 100).toFixed(1)}%`;
 
       document.getElementById("totalPlayers").textContent = dataRows.length;
-      document.getElementById("topPlayer").textContent = top ? `${top.name} (${top.marks})` : "N/A";
+      document.getElementById("topPlayer").textContent = top ? `${top.name} (${formatPct(top.rollingRate)})` : "N/A";
       document.getElementById("ironMenNumber").textContent = ironMen.length;
       document.getElementById("ironMenNames").textContent = ironMen.length
-        ? ironMen.map((p) => p.name).join(", ")
-        : `No players at ${ironMenThreshold}+ yet (${totalPossible} possible as of today)`;
+        ? ironMen.map((p) => `${p.name} (${formatPct(p.rollingRate)})`).join(", ")
+        : `No players at ${formatPct(ironMenThresholdRate)} yet (${totalPossible} possible as of today)`;
 
-      return { playerTotals };
+      return { playerTotals, totalPossible };
     }
 
     function buildChart(playerTotals) {
       const playerNames = playerTotals.map((p) => p.name);
-      const attendanceTotals = playerTotals.map((p) => p.marks);
+      const rollingAttendancePct = playerTotals.map((p) => +(p.rollingRate * 100).toFixed(1));
 
       new Chart(document.getElementById("attendanceChart"), {
         type: "bar",
         data: {
           labels: playerNames,
           datasets: [{
-            label: "Total Attendance Marks",
-            data: attendanceTotals,
+            label: "Rolling Attendance %",
+            data: rollingAttendancePct,
             backgroundColor: "rgba(229, 163, 42, 0.7)",
             borderColor: "rgba(229, 163, 42, 1)",
             borderWidth: 1
@@ -286,7 +288,12 @@
             x: { ticks: { color: "#e8eaef" } },
             y: {
               beginAtZero: true,
-              ticks: { precision: 0, color: "#e8eaef" },
+              max: 100,
+              ticks: {
+                precision: 0,
+                color: "#e8eaef",
+                callback: (value) => `${value}%`
+              },
               grid: { color: "rgba(255, 255, 255, 0.12)" }
             }
           }
