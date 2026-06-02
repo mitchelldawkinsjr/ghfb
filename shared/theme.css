@@ -1,0 +1,49 @@
+/**
+ * Godwin Heights Football — shared theme tokens and base chrome.
+ * Load Instrument Sans on each page (see index.html).
+ */
+:root {
+  --bg0: #0a0c10;
+  --bg1: #12161e;
+  --card: #181e2a;
+  --border: rgba(212, 175, 55, 0.25);
+  --text: #e8eaef;
+  --muted: #8b93a7;
+  --accent: #e5a32a;
+  --good: #5dd39e;
+  --wr: #ffe599;
+  --cond: #9fc5e8;
+  --danger: #f4a4a4;
+  --accent-dim: rgba(229, 163, 42, 0.14);
+  --radius: 14px;
+  --font: "Instrument Sans", system-ui, -apple-system, sans-serif;
+}
+
+.back-link {
+  display: inline-block;
+  color: var(--accent);
+  text-decoration: none;
+  margin-bottom: 16px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.ghfb-subtitle {
+  color: var(--muted);
+}
+
+.ghfb-subtitle--center {
+  text-align: center;
+  margin: 0 0 30px;
+}
+
+.ghfb-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}

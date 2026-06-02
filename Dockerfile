@@ -8,6 +8,8 @@ COPY deploy/checkin_proxy.py /opt/checkin_proxy.py
 COPY deploy/start-ghfb.sh /opt/start-ghfb.sh
 RUN chmod +x /opt/start-ghfb.sh /opt/checkin_proxy.py
 COPY *.html /usr/share/nginx/html/
+COPY shared /usr/share/nginx/html/shared/
+COPY js /usr/share/nginx/html/js/
 COPY check-in-config.js /usr/share/nginx/html/
 COPY manifest.webmanifest sw.js /usr/share/nginx/html/
 COPY icons /usr/share/nginx/html/icons/

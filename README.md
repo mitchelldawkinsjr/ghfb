@@ -4,6 +4,8 @@ Static landing page for Godwin Heights Football apps and resources. Live at **ht
 
 The hub (`index.html`) links six tools in navy/gold styling. The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
 
+**Architecture docs:** [docs/README.md](docs/README.md) — sitemap, data flows, deploy, and sheet model.
+
 ## Hub links
 
 | Tool | URL |
@@ -49,6 +51,21 @@ Check-in UX: instant roster from cached CSV (shared with the dashboard), grid st
 
 The team tools hub (`index.html`) is installable on phone or desktop — use **Add to Home Screen** on the hub or Chrome/Edge **Install app**. Icons live in `icons/`; `manifest.webmanifest` opens to `/`. The attendance dashboard loads live data from Google Sheets when online.
 
+## Shared front-end modules
+
+Attendance and check-in share vanilla ES modules (no bundler):
+
+| Path | Purpose |
+|------|---------|
+| `shared/theme.css` | Navy/gold CSS variables, back link, card tokens |
+| `shared/ghfb-csv.js` | CSV parse, session cache, fetch `/api/attendance.csv` |
+| `shared/ghfb-attendance.js` | Sheet column rules, rolling stats, roster rows |
+| `shared/ghfb-dom.js` | `formatPct`, `escapeHtml` |
+| `js/attendance-dashboard.js` | Dashboard UI (imports shared modules) |
+| `js/check-in.js` | Coach check-in UI (imports shared modules) |
+
+Pages load shared code with `<script type="module" src="…">`. Use a local HTTP server (Docker or `python3 -m http.server`) — `file://` will not resolve module imports.
+
 ## Repo layout
 
 | File | Purpose |
@@ -57,6 +74,8 @@ The team tools hub (`index.html`) is installable on phone or desktop — use **A
 | `schedule.html` / `images/schedule-2026.jpg` | 2026 varsity schedule graphic |
 | `check-in.html` | Coach tap-list check-in |
 | `attendance-dashboard.html` | Live attendance dashboard |
+| `shared/` / `js/` | Shared theme + sheet logic + page scripts |
+| `docs/` | Architecture, sitemap, and flow documentation |
 | `scripts/coach-check-in/` | Apps Script for sheet writes |
 | `manifest.webmanifest` / `sw.js` / `icons/` | PWA install + offline shell |
 | `Dockerfile` / `deploy/nginx.conf` | nginx static image |
@@ -67,7 +86,10 @@ The team tools hub (`index.html`) is installable on phone or desktop — use **A
 
 ```bash
 cd ~/Projects/ghfb
-open index.html
+
+# Static server (required for ES module imports on attendance/check-in):
+python3 -m http.server 8080
+open http://localhost:8080/
 
 # Or run the production Docker stack locally:
 docker compose -f docker-compose.prod.yml up --build

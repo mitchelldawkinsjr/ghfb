@@ -1,0 +1,421 @@
+import { parseCSV, readCsvCache, fetchCsvRows } from "/shared/ghfb-csv.js";
+import {
+  getDataRows,
+  getPlayerDisplayName,
+  getTodayLabel,
+  findSessionColumnIndex,
+} from "/shared/ghfb-attendance.js";
+
+const CHECKIN_API = window.GHFB_CHECKIN_API || "/api/checkin";
+const PIN_STORAGE_KEY = "ghfb-coach-pin";
+const CHECKIN_STATE_TTL_MS = 45 * 1000;
+const saveQueue = [];
+let saveQueueRunning = false;
+let syncing = false;
+let viewOnly = false;
+const buttonByRow = new Map();
+const rowUiState = new Map();
+
+let sessionType = "weightroom";
+let players = [];
+let todayLabel = "";
+
+const statusEl = document.getElementById("status");
+const gridEl = document.getElementById("grid");
+const searchEl = document.getElementById("search");
+const pinEl = document.getElementById("pin");
+const setupBanner = document.getElementById("setupBanner");
+
+const savedPin = sessionStorage.getItem(PIN_STORAGE_KEY);
+if (savedPin) pinEl.value = savedPin;
+pinEl.addEventListener("change", () => {
+  sessionStorage.setItem(PIN_STORAGE_KEY, pinEl.value.trim());
+});
+
+document.querySelectorAll(".seg button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".seg button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    sessionType = btn.dataset.type;
+    load();
+  });
+});
+searchEl.addEventListener("input", render);
+
+function getPin() {
+  return pinEl.value.trim();
+}
+
+function setStatus(msg, isError) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("error", !!isError);
+}
+
+function buildFromCsv(rows, type) {
+  const headerRow = rows[0] || [];
+  const dataRows = getDataRows(rows);
+  todayLabel = getTodayLabel();
+  const colIdx = findSessionColumnIndex(headerRow, type);
+
+  if (colIdx == null) {
+    return {
+      ok: false,
+      error: `No column found for today (${todayLabel}). Add a "${todayLabel}" header in the sheet first.`,
+      todayLabel,
+    };
+  }
+
+  const roster = dataRows.map((row, i) => {
+    const sheetRow = i + 2;
+    const checked = String(row[colIdx] ?? "").trim().toUpperCase() === "X";
+    return {
+      sheetRow,
+      name: getPlayerDisplayName(row),
+      checked,
+      serverChecked: checked,
+    };
+  });
+
+  return {
+    ok: true,
+    todayLabel,
+    players: roster,
+    checkedCount: roster.filter((p) => p.checked).length,
+    total: roster.length,
+    syncing: true,
+    viewOnly: false,
+  };
+}
+
+function normalizePlayers(list) {
+  return (list || []).map((p) => ({
+    sheetRow: p.sheetRow,
+    name: p.name,
+    checked: !!p.checked,
+    serverChecked: p.serverChecked != null ? !!p.serverChecked : !!p.checked,
+  }));
+}
+
+function mergeLiveMarks(apiData) {
+  if (!apiData?.ok) return;
+  const byRow = new Map(apiData.players.map((p) => [p.sheetRow, !!p.checked]));
+  for (const pl of players) {
+    if (byRow.has(pl.sheetRow)) {
+      const checked = byRow.get(pl.sheetRow);
+      pl.checked = checked;
+      pl.serverChecked = checked;
+    }
+  }
+  syncing = false;
+  refreshAllButtons();
+  setStatus(statusLine(), false);
+  persistCheckInCache();
+}
+
+function checkInStateCacheKey(type) {
+  return `ghfb-checkin-${type}-${getTodayLabel()}`;
+}
+
+function readCheckInCache(type) {
+  try {
+    const raw = sessionStorage.getItem(checkInStateCacheKey(type));
+    if (!raw) return null;
+    const { savedAt, data } = JSON.parse(raw);
+    if (!data || Date.now() - savedAt >= CHECKIN_STATE_TTL_MS) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function writeCheckInCache(type, data) {
+  if (!data?.ok) return;
+  try {
+    sessionStorage.setItem(
+      checkInStateCacheKey(type),
+      JSON.stringify({ savedAt: Date.now(), data })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+async function apiGet(action, params) {
+  const qs = new URLSearchParams({ action, ...params });
+  const res = await fetch(`${CHECKIN_API}?${qs}`, { cache: "no-store" });
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(res.ok ? "Invalid API response" : `Check-in API error (${res.status})`);
+  }
+  if (!res.ok && data?.error) throw new Error(data.error);
+  return data;
+}
+
+async function apiToggle(sheetRow) {
+  const data = await apiGet("toggleCheckIn", {
+    sheetRow: String(sheetRow),
+    sessionType,
+    pin: getPin(),
+  });
+  if (data.ok === false) throw new Error(data.error || "Save failed");
+  return data;
+}
+
+function queueSuffix() {
+  const q = saveQueue.length;
+  const parts = [];
+  if (syncing) parts.push("syncing marks…");
+  if (q > 0) parts.push(`${q} save${q === 1 ? "" : "s"} queued`);
+  if (viewOnly) parts.push("view only");
+  return parts.length ? ` · ${parts.join(" · ")}` : "";
+}
+
+function statusLine() {
+  const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
+  const n = players.filter((p) => p.checked).length;
+  return `${kind} · ${todayLabel} · ${n} / ${players.length} checked in${queueSuffix()}`;
+}
+
+function markLabel(player, uiState) {
+  if (uiState === "saving") return '<span class="mark">Saving…</span>';
+  if (uiState === "queued") return '<span class="mark">Queued…</span>';
+  if (player.checked) return '<span class="mark">Checked in</span>';
+  return "";
+}
+
+function updatePlayerButton(btn, player, uiState) {
+  btn.classList.toggle("checked", player.checked);
+  btn.classList.toggle("is-queued", uiState === "queued");
+  btn.classList.toggle("is-saving", uiState === "saving");
+  btn.innerHTML = player.name + markLabel(player, uiState);
+}
+
+function refreshRow(sheetRow) {
+  const btn = buttonByRow.get(sheetRow);
+  const pl = players.find((x) => x.sheetRow === sheetRow);
+  if (!btn || !pl) return;
+  updatePlayerButton(btn, pl, rowUiState.get(sheetRow) || "idle");
+}
+
+function refreshAllButtons() {
+  for (const pl of players) refreshRow(pl.sheetRow);
+}
+
+function persistCheckInCache() {
+  writeCheckInCache(sessionType, {
+    ok: true,
+    todayLabel,
+    players: players.map((p) => ({
+      sheetRow: p.sheetRow,
+      name: p.name,
+      checked: p.checked,
+    })),
+    checkedCount: players.filter((p) => p.checked).length,
+    total: players.length,
+    sessionType,
+  });
+}
+
+function applyData(data) {
+  if (!data.ok) {
+    setStatus(data.error, true);
+    players = [];
+    gridEl.innerHTML = "";
+    buttonByRow.clear();
+    return;
+  }
+  players = normalizePlayers(data.players);
+  todayLabel = data.todayLabel || getTodayLabel();
+  if (data.syncing != null) syncing = !!data.syncing;
+  if (data.viewOnly != null) viewOnly = !!data.viewOnly;
+  setStatus(statusLine(), false);
+  setupBanner.hidden = !viewOnly;
+  render();
+}
+
+function render() {
+  const q = searchEl.value.trim().toLowerCase();
+  gridEl.innerHTML = "";
+  buttonByRow.clear();
+  players
+    .filter((p) => !q || p.name.toLowerCase().includes(q))
+    .forEach((p) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const uiState = rowUiState.get(p.sheetRow) || "idle";
+      btn.className = "player" + (p.checked ? " checked" : "");
+      updatePlayerButton(btn, p, uiState);
+      btn.addEventListener("click", () => toggle(p.sheetRow));
+      buttonByRow.set(p.sheetRow, btn);
+      gridEl.appendChild(btn);
+    });
+}
+
+function enqueueSave(sheetRow) {
+  const idx = saveQueue.findIndex((j) => j.sheetRow === sheetRow);
+  if (idx >= 0) saveQueue.splice(idx, 1);
+  saveQueue.push({ sheetRow });
+  rowUiState.set(sheetRow, "queued");
+  refreshRow(sheetRow);
+  setStatus(statusLine(), false);
+  drainSaveQueue();
+}
+
+async function syncRowToServer(sheetRow) {
+  const pl = players.find((x) => x.sheetRow === sheetRow);
+  if (!pl) return;
+
+  let guard = 0;
+  while (pl.checked !== pl.serverChecked && guard < 4) {
+    guard += 1;
+    const res = await apiToggle(sheetRow);
+    pl.serverChecked = !!res.checked;
+    pl.checked = pl.serverChecked;
+  }
+}
+
+async function drainSaveQueue() {
+  if (saveQueueRunning) return;
+  saveQueueRunning = true;
+  try {
+    while (saveQueue.length > 0) {
+      const job = saveQueue[0];
+      const pl = players.find((x) => x.sheetRow === job.sheetRow);
+      if (!pl) {
+        saveQueue.shift();
+        continue;
+      }
+
+      const pending = saveQueue.filter((j) => j.sheetRow === job.sheetRow);
+      for (const j of pending) {
+        const i = saveQueue.indexOf(j);
+        if (i >= 0) saveQueue.splice(i, 1);
+      }
+
+      if (pl.checked === pl.serverChecked) {
+        rowUiState.set(job.sheetRow, "idle");
+        refreshRow(job.sheetRow);
+        continue;
+      }
+
+      rowUiState.set(job.sheetRow, "saving");
+      refreshRow(job.sheetRow);
+      setStatus(statusLine(), false);
+
+      try {
+        await syncRowToServer(job.sheetRow);
+        rowUiState.set(job.sheetRow, "idle");
+        refreshRow(job.sheetRow);
+        persistCheckInCache();
+      } catch (err) {
+        pl.checked = pl.serverChecked;
+        rowUiState.set(job.sheetRow, "idle");
+        refreshRow(job.sheetRow);
+        setStatus(err.message || String(err), true);
+        if (/pin/i.test(String(err.message))) pinEl.focus();
+      }
+    }
+  } finally {
+    saveQueueRunning = false;
+    setStatus(statusLine(), false);
+    if (saveQueue.length > 0) drainSaveQueue();
+  }
+}
+
+function toggle(sheetRow) {
+  if (viewOnly) return;
+  const pl = players.find((x) => x.sheetRow === sheetRow);
+  if (!pl) return;
+
+  pl.checked = !pl.checked;
+  refreshRow(sheetRow);
+  setStatus(statusLine(), false);
+  enqueueSave(sheetRow);
+}
+
+async function load() {
+  setStatus("Loading roster…");
+  gridEl.innerHTML = "";
+
+  const cachedApi = readCheckInCache(sessionType);
+  if (cachedApi?.ok) {
+    applyData({ ...cachedApi, syncing: false, viewOnly: false });
+  }
+
+  const cachedCsvText = readCsvCache();
+  if (cachedCsvText && !cachedApi?.ok) {
+    const shell = buildFromCsv(parseCSV(cachedCsvText), sessionType);
+    if (shell.ok) applyData(shell);
+  }
+
+  syncing = true;
+  try {
+    const [rows, apiData] = await Promise.all([
+      fetchCsvRows(),
+      apiGet("getCheckInData", { sessionType, pin: getPin() }),
+    ]);
+
+    if (!players.length && rows) {
+      const shell = buildFromCsv(rows, sessionType);
+      if (shell.ok) applyData(shell);
+    }
+
+    if (apiData.ok) {
+      if (players.length) {
+        mergeLiveMarks(apiData);
+        writeCheckInCache(sessionType, {
+          ok: true,
+          todayLabel,
+          players: players.map((p) => ({
+            sheetRow: p.sheetRow,
+            name: p.name,
+            checked: p.checked,
+          })),
+          checkedCount: players.filter((p) => p.checked).length,
+          total: players.length,
+          sessionType,
+        });
+      } else {
+        writeCheckInCache(sessionType, apiData);
+        applyData({ ...apiData, syncing: false, viewOnly: false });
+      }
+      return;
+    }
+
+    syncing = false;
+    setStatus(apiData.error, true);
+    if (!players.length && rows) {
+      const shell = buildFromCsv(rows, sessionType);
+      if (shell.ok) applyData({ ...shell, viewOnly: true });
+    }
+  } catch (err) {
+    const msg = err.message || String(err);
+    if (/pin/i.test(msg)) {
+      setStatus(msg, true);
+      pinEl.focus();
+      return;
+    }
+
+    syncing = false;
+    if (!players.length) {
+      try {
+        const rows = await fetchCsvRows();
+        const shell = buildFromCsv(rows, sessionType);
+        if (shell.ok) {
+          applyData({ ...shell, viewOnly: true });
+          return;
+        }
+        setStatus(shell.error || msg, true);
+      } catch {
+        setStatus(msg, true);
+      }
+    } else {
+      setStatus(`${msg} · showing cached roster`, true);
+    }
+  }
+}
+
+load();
