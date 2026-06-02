@@ -210,6 +210,10 @@
     const CSV_URL = "/api/attendance.csv";
     const CHECKIN_API = window.GHFB_CHECKIN_API || "/api/checkin";
     const PIN_STORAGE_KEY = "ghfb-coach-pin";
+    const CSV_CACHE_KEY = "ghfb-attendance-csv";
+    const CSV_CACHE_TTL_MS = 3 * 60 * 1000;
+    const CHECKIN_STATE_TTL_MS = 45 * 1000;
+    const pendingRows = new Set();
     const SUMMARY_HEADERS = new Set([
       "Current Total",
       "Ironman %",
@@ -220,7 +224,6 @@
     let sessionType = "weightroom";
     let players = [];
     let readOnly = false;
-    let busy = false;
     let todayLabel = "";
 
     const statusEl = document.getElementById("status");
@@ -395,10 +398,65 @@
       };
     }
 
-    async function fetchCsv() {
-      const res = await fetch(CSV_URL, { cache: "no-store" });
+    function checkInStateCacheKey(type) {
+      return `ghfb-checkin-${type}-${getTodayLabel()}`;
+    }
+
+    function readCsvCache() {
+      try {
+        const raw = sessionStorage.getItem(CSV_CACHE_KEY);
+        if (!raw) return null;
+        const { savedAt, csv } = JSON.parse(raw);
+        if (!csv || Date.now() - savedAt >= CSV_CACHE_TTL_MS) return null;
+        return csv;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeCsvCache(csv) {
+      try {
+        sessionStorage.setItem(
+          CSV_CACHE_KEY,
+          JSON.stringify({ savedAt: Date.now(), csv })
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function readCheckInCache(type) {
+      try {
+        const raw = sessionStorage.getItem(checkInStateCacheKey(type));
+        if (!raw) return null;
+        const { savedAt, data } = JSON.parse(raw);
+        if (!data || Date.now() - savedAt >= CHECKIN_STATE_TTL_MS) return null;
+        return data;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeCheckInCache(type, data) {
+      if (!data?.ok) return;
+      try {
+        sessionStorage.setItem(
+          checkInStateCacheKey(type),
+          JSON.stringify({ savedAt: Date.now(), data })
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+
+    async function fetchCsvRows() {
+      const cached = readCsvCache();
+      if (cached) return parseCSV(cached);
+      const res = await fetch(CSV_URL);
       if (!res.ok) throw new Error("Could not load attendance CSV");
-      return parseCSV(await res.text());
+      const text = await res.text();
+      writeCsvCache(text);
+      return parseCSV(text);
     }
 
     async function apiGet(action, params) {
@@ -425,13 +483,16 @@
       return data;
     }
 
-    async function probeApi() {
-      try {
-        await apiGet("getCheckInData", { sessionType, pin: getPin() });
-        return true;
-      } catch {
-        return false;
-      }
+    function statusLine(extra) {
+      const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
+      const n = players.filter((p) => p.checked).length;
+      return `${kind} · ${todayLabel} · ${n} / ${players.length} checked in${extra || ""}`;
+    }
+
+    function updatePlayerButton(btn, player) {
+      btn.classList.toggle("checked", player.checked);
+      btn.innerHTML =
+        player.name + (player.checked ? '<span class="mark">Checked in</span>' : "");
     }
 
     function applyData(data) {
@@ -444,12 +505,8 @@
       players = data.players || [];
       readOnly = !!data.readOnly;
       todayLabel = data.todayLabel || getTodayLabel();
-      const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
-      const mode = readOnly ? " · view only (API not connected)" : "";
-      setStatus(
-        `${kind} · ${todayLabel} · ${data.checkedCount} / ${data.total} checked in${mode}`,
-        false
-      );
+      const mode = readOnly ? " · view only (syncing…)" : "";
+      setStatus(statusLine(mode), false);
       setupBanner.hidden = !readOnly;
       render();
     }
@@ -472,53 +529,96 @@
     }
 
     async function toggle(btn, sheetRow) {
-      if (busy || readOnly) return;
-      busy = true;
+      if (readOnly || pendingRows.has(sheetRow)) return;
+      const pl = players.find((x) => x.sheetRow === sheetRow);
+      if (!pl) return;
+
+      const wasChecked = pl.checked;
+      pl.checked = !wasChecked;
+      updatePlayerButton(btn, pl);
+      setStatus(statusLine(), false);
+
+      pendingRows.add(sheetRow);
       btn.disabled = true;
       try {
         const res = await apiToggle(sheetRow);
-        const pl = players.find((x) => x.sheetRow === sheetRow);
-        if (pl) pl.checked = res.checked;
-        btn.classList.toggle("checked", res.checked);
-        btn.innerHTML =
-          pl.name + (res.checked ? '<span class="mark">Checked in</span>' : "");
-        const n = players.filter((x) => x.checked).length;
-        const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
-        setStatus(`${kind} · ${todayLabel} · ${n} / ${players.length} checked in`, false);
+        pl.checked = res.checked;
+        updatePlayerButton(btn, pl);
+        setStatus(statusLine(), false);
+        writeCheckInCache(sessionType, {
+          ok: true,
+          todayLabel,
+          players,
+          checkedCount: players.filter((p) => p.checked).length,
+          total: players.length,
+          sessionType,
+        });
       } catch (err) {
+        pl.checked = wasChecked;
+        updatePlayerButton(btn, pl);
         setStatus(err.message || String(err), true);
         if (/pin/i.test(String(err.message))) pinEl.focus();
       } finally {
-        busy = false;
-        btn.disabled = false;
+        pendingRows.delete(sheetRow);
+        btn.disabled = readOnly;
       }
     }
 
     async function load() {
       setStatus("Loading roster…");
       gridEl.innerHTML = "";
-      try {
-        if (await probeApi()) {
-          const data = await apiGet("getCheckInData", {
-            sessionType,
-            pin: getPin(),
-          });
-          applyData({ ...data, readOnly: false });
-          return;
-        }
-      } catch (err) {
-        if (/pin/i.test(String(err.message))) {
-          setStatus(err.message, true);
-          pinEl.focus();
-          return;
-        }
+
+      const cachedApi = readCheckInCache(sessionType);
+      if (cachedApi?.ok) {
+        applyData({ ...cachedApi, readOnly: false });
+      }
+
+      const cachedCsvText = readCsvCache();
+      if (cachedCsvText && !cachedApi?.ok) {
+        const shell = buildFromCsv(parseCSV(cachedCsvText), sessionType);
+        if (shell.ok) applyData(shell);
       }
 
       try {
-        const rows = await fetchCsv();
-        applyData(buildFromCsv(rows, sessionType));
+        const [rows, apiData] = await Promise.all([
+          fetchCsvRows(),
+          apiGet("getCheckInData", { sessionType, pin: getPin() }),
+        ]);
+
+        if (apiData.ok) {
+          writeCheckInCache(sessionType, apiData);
+          applyData({ ...apiData, readOnly: false });
+          return;
+        }
+
+        setStatus(apiData.error, true);
+        if (!players.length && rows) {
+          const shell = buildFromCsv(rows, sessionType);
+          if (shell.ok) applyData(shell);
+        }
       } catch (err) {
-        setStatus(err.message || "Could not load roster", true);
+        const msg = err.message || String(err);
+        if (/pin/i.test(msg)) {
+          setStatus(msg, true);
+          pinEl.focus();
+          return;
+        }
+
+        if (!players.length) {
+          try {
+            const rows = await fetchCsvRows();
+            const shell = buildFromCsv(rows, sessionType);
+            if (shell.ok) {
+              applyData(shell);
+              return;
+            }
+            setStatus(shell.error || msg, true);
+          } catch {
+            setStatus(msg, true);
+          }
+        } else {
+          setStatus(`${msg} · showing cached roster`, true);
+        }
       }
     }
 

@@ -43,6 +43,8 @@ Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sh
 
 Until the script URL is set, the page loads the roster from CSV in **view-only** mode.
 
+Check-in UX: instant roster from cached CSV (shared with the dashboard), one live API call to sync marks, 45s session cache when switching WR/conditioning, and optimistic tap updates while saves run in the background.
+
 ### Install as app (PWA)
 
 The team tools hub (`index.html`) is installable on phone or desktop — use **Add to Home Screen** on the hub or Chrome/Edge **Install app**. Icons live in `icons/`; `manifest.webmanifest` opens to `/`. The attendance dashboard loads live data from Google Sheets when online.
