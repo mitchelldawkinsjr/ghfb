@@ -29,7 +29,9 @@ The hub (`index.html`) links six tools in navy/gold styling. The footer shows th
 - **Table:** Scrollable roster; Jersey # and Grade hidden; row colors inferred from session type (weightroom vs conditioning), `X` marks, empty cells, and a “missed 24+” highlight when applicable (CSV has no fill colors).
 - **Legend:** On-page key matching workbook colors (Conditioning, Weightroom, No Attendance, Missed 24 for Summer).
 
-To point at a different sheet, update the `csvUrl` in `attendance-dashboard.html`.
+To point at a different sheet, update the Google `proxy_pass` URL in `deploy/nginx.conf` and `CSV_URL` in `attendance-dashboard.html`.
+
+Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sheets and caches responses for 90 seconds on the server).
 
 ### Install as app (PWA)
 

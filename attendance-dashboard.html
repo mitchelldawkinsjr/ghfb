@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>2026 Summer WR and Conditioning Attendance</title>
   <meta name="description" content="Live Godwin Heights Football summer attendance dashboard." />
-  <link rel="preconnect" href="https://docs.google.com" />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <style>
     :root {
       --bg0: #0a0c10;
@@ -111,16 +109,48 @@
       from { transform: translateX(-100%); }
       to { transform: translateX(100%); }
     }
-    .chart-wrap {
-      min-height: 280px;
+    .chart-title {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      font-weight: 600;
     }
-    .chart-placeholder {
+    .bar-chart {
       display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(88px, 130px) 1fr 44px;
       align-items: center;
-      justify-content: center;
-      min-height: 240px;
-      color: var(--muted);
-      font-size: 0.9375rem;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .bar-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+    }
+    .bar-track {
+      height: 22px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, rgba(229, 163, 42, 0.85), var(--accent));
+      border-radius: 4px;
+      min-width: 2px;
+    }
+    .bar-pct {
+      text-align: right;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 12px;
     }
     .table-wrap {
       overflow: auto;
@@ -217,7 +247,7 @@
     }
   </style>
   <script>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-oEpo0pvk7YAWpv2jAhyqmWeIYVEZRRXliKY6uY-_NGZwE3rl28BG2HSSLtamqfeTLvR5AT8ywh28/pub?gid=585894674&single=true&output=csv";
+    const CSV_URL = "/api/attendance.csv";
     const CACHE_KEY = "ghfb-attendance-csv";
     const CACHE_TTL_MS = 3 * 60 * 1000;
 
@@ -227,13 +257,14 @@
         if (raw) {
           const { savedAt, csv } = JSON.parse(raw);
           if (csv && Date.now() - savedAt < CACHE_TTL_MS) {
-            const fresh = fetch(CSV_URL)
-              .then((r) => (r.ok ? r.text() : Promise.reject(new Error("fetch failed"))))
+            fetch(CSV_URL)
+              .then((r) => (r.ok ? r.text() : null))
               .then((text) => {
-                sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), csv: text }));
-                return text;
+                if (text) {
+                  sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), csv: text }));
+                }
               })
-              .catch(() => csv);
+              .catch(() => {});
             return Promise.resolve(csv);
           }
         }
@@ -285,8 +316,8 @@
   </div>
 
   <div class="card chart-wrap is-loading" id="chartCard">
-    <div id="chartPlaceholder" class="chart-placeholder">Loading chart…</div>
-    <canvas id="attendanceChart" hidden></canvas>
+    <h3 class="chart-title">Rolling attendance %</h3>
+    <div id="attendanceBarChart" class="bar-chart" aria-label="Rolling attendance by player"></div>
   </div>
 
   <div class="card">
@@ -311,8 +342,7 @@
     const loadStatus = document.getElementById("loadStatus");
     const tableCard = document.getElementById("tableCard");
     const chartCard = document.getElementById("chartCard");
-    const chartPlaceholder = document.getElementById("chartPlaceholder");
-    const chartCanvas = document.getElementById("attendanceChart");
+    const barChartEl = document.getElementById("attendanceBarChart");
 
     function setLoadStatus(text, isError) {
       if (!loadStatus) return;
@@ -477,13 +507,9 @@
       return { playerTotals };
     }
 
-    function buildTable(rows) {
+    function buildTable(rows, ctx) {
       const table = document.getElementById("attendanceTable");
-      const headerRow = rows[0] || [];
-      const displayCols = getTableColumnIndexes(headerRow);
-      const columnKinds = headerRow.map((header) => getColumnKind(header));
-      const validIndexes = getValidAttendanceIndexes(headerRow, ATTENDANCE_START_IDX);
-      const validSet = new Set(validIndexes);
+      const { displayCols, columnKinds, validIndexes, validSet } = ctx;
       const fragment = document.createDocumentFragment();
 
       rows.forEach((row, rowIndex) => {
@@ -534,80 +560,48 @@
       tableCard.classList.remove("is-loading");
     }
 
-    let chartJsPromise;
-
-    function loadChartJs() {
-      if (window.Chart) return Promise.resolve(window.Chart);
-      if (!chartJsPromise) {
-        chartJsPromise = new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://cdn.jsdelivr.net/npm/chart.js";
-          script.async = true;
-          script.onload = () => resolve(window.Chart);
-          script.onerror = () => reject(new Error("Chart.js failed to load"));
-          document.head.appendChild(script);
-        });
-      }
-      return chartJsPromise;
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
 
-    function buildChart(playerTotals) {
-      return loadChartJs().then((Chart) => {
-        chartPlaceholder.hidden = true;
-        chartCanvas.hidden = false;
-        chartCard.classList.remove("is-loading");
-
-        const playerNames = playerTotals.map((p) => p.name);
-        const rollingAttendancePct = playerTotals.map((p) => +(p.rollingRate * 100).toFixed(1));
-
-        new Chart(chartCanvas, {
-          type: "bar",
-          data: {
-            labels: playerNames,
-            datasets: [{
-              label: "Rolling Attendance %",
-              data: rollingAttendancePct,
-              backgroundColor: "rgba(229, 163, 42, 0.7)",
-              borderColor: "rgba(229, 163, 42, 1)",
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              legend: { labels: { color: "#e8eaef" } }
-            },
-            scales: {
-              x: { ticks: { color: "#e8eaef" } },
-              y: {
-                beginAtZero: true,
-                max: 100,
-                ticks: {
-                  precision: 0,
-                  color: "#e8eaef",
-                  callback: (value) => `${value}%`
-                },
-                grid: { color: "rgba(255, 255, 255, 0.12)" }
-              }
-            }
-          }
-        });
+    function buildBarChart(playerTotals) {
+      const sorted = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate);
+      const rows = sorted.map((p) => {
+        const pct = (p.rollingRate * 100).toFixed(1);
+        const width = Math.max(0, Math.min(100, p.rollingRate * 100));
+        const name = escapeHtml(p.name);
+        return (
+          `<div class="bar-row">` +
+          `<span class="bar-label" title="${name}">${name}</span>` +
+          `<div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>` +
+          `<span class="bar-pct">${pct}%</span>` +
+          `</div>`
+        );
       });
+      barChartEl.innerHTML = rows.join("");
+      chartCard.classList.remove("is-loading");
     }
 
     function renderDashboard(csv) {
       const rows = parseCSV(csv).filter((r) => r.some((c) => c !== ""));
       if (rows.length < 2) throw new Error("No attendance rows found");
 
+      const headerRow = rows[0] || [];
+      const displayCols = getTableColumnIndexes(headerRow);
+      const columnKinds = headerRow.map((header) => getColumnKind(header));
+      const validIndexes = getValidAttendanceIndexes(headerRow, ATTENDANCE_START_IDX);
+      const validSet = new Set(validIndexes);
+
       const summary = buildSummary(rows);
-      buildTable(rows);
+      buildBarChart(summary.playerTotals);
       setLoadStatus("Updated just now");
 
-      buildChart(summary.playerTotals).catch((err) => {
-        console.warn("Chart failed:", err);
-        chartPlaceholder.textContent = "Chart could not load.";
-        chartPlaceholder.hidden = false;
-        chartCard.classList.remove("is-loading");
+      requestAnimationFrame(() => {
+        buildTable(rows, { displayCols, columnKinds, validIndexes, validSet });
       });
     }
 
@@ -620,7 +614,7 @@
         setLoadStatus("Could not load attendance data. Try refreshing.", true);
         tableCard.classList.remove("is-loading");
         chartCard.classList.remove("is-loading");
-        chartPlaceholder.textContent = "—";
+        if (barChartEl) barChartEl.innerHTML = "";
       });
   </script>
 </body>
