@@ -167,7 +167,10 @@ function getSheet_() {
 function testSheetAccess() {
   var sheet = getSheet_();
   var roster = getRoster_(sheet);
+  var wrCol = findSessionColumn_(sheet, "weightroom");
+  var condCol = findSessionColumn_(sheet, "conditioning");
   Logger.log("OK: " + roster.length + " players on " + SHEET_NAME);
+  Logger.log("Today weightroom col: " + wrCol + ", conditioning col: " + condCol);
 }
 
 function verifyPin_(pin) {
@@ -240,24 +243,36 @@ function findSessionColumn_(sheet, sessionType) {
   var c;
 
   for (c = 0; c < headers.length; c++) {
-    var header = String(headers[c] != null ? headers[c] : "").trim();
-    if (!header || SUMMARY_HEADERS.indexOf(header) >= 0) break;
+    var header = headerToString_(headers[c]);
+    if (!header) continue;
+    if (SUMMARY_HEADERS.indexOf(header) >= 0) break;
 
-    var dateVal = parseHeaderDate_(header);
+    var dateVal = parseHeaderDate_(headers[c]);
     if (!dateVal || !isSameDay_(dateVal, today)) continue;
 
     if (type === "weightroom") return c + 1;
 
     if (type === "conditioning") {
-      var nextHeader = headers[c + 1];
-      var next = String(nextHeader != null ? nextHeader : "")
-        .trim()
-        .toUpperCase();
+      var next = headerToString_(headers[c + 1]).toUpperCase();
       if (next === "C") return c + 2;
-      throw new Error('Today has a date column but no "C" column for conditioning.');
+      return null;
     }
   }
   return null;
+}
+
+/** Normalize row-1 header cells (text "6/2" or Sheets date values). */
+function headerToString_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "M/d");
+  }
+  if (typeof value === "number" && value > 0) {
+    var fromSerial = parseHeaderDate_(value);
+    if (fromSerial) {
+      return Utilities.formatDate(fromSerial, Session.getScriptTimeZone(), "M/d");
+    }
+  }
+  return String(value != null ? value : "").trim();
 }
 
 function getTodayHeaderCandidates_() {
@@ -270,8 +285,16 @@ function getTodayHeaderCandidates_() {
   ];
 }
 
-function parseHeaderDate_(text) {
-  var s = String(text != null ? text : "").trim();
+function parseHeaderDate_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return startOfDay_(value);
+  }
+  if (typeof value === "number" && value > 0) {
+    var epoch = new Date(Date.UTC(1899, 11, 30));
+    var fromSerial = new Date(epoch.getTime() + Math.round(value * 86400000));
+    if (!isNaN(fromSerial.getTime())) return startOfDay_(fromSerial);
+  }
+  var s = String(value != null ? value : "").trim();
   var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (m) {
     var year = Number(m[3]);
