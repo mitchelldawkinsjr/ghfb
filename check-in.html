@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coach Check-in — Godwin Heights Football</title>
+  <meta name="description" content="Coach tap-list attendance check-in for summer weightroom and conditioning." />
+  <meta name="theme-color" content="#0a0c10" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg0: #0a0c10;
+      --bg1: #12161e;
+      --card: #181e2a;
+      --border: rgba(212, 175, 55, 0.25);
+      --text: #e8eaef;
+      --muted: #8b93a7;
+      --accent: #e5a32a;
+      --good: #5dd39e;
+      --wr: #ffe599;
+      --cond: #9fc5e8;
+      --danger: #f4a4a4;
+      --font: "Instrument Sans", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: linear-gradient(165deg, var(--bg0) 0%, var(--bg1) 55%, #0f1520 100%);
+      color: var(--text);
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .shell { max-width: 900px; margin: 0 auto; }
+    .back-link {
+      display: inline-block;
+      color: var(--accent);
+      text-decoration: none;
+      margin-bottom: 16px;
+      font-weight: 600;
+      font-size: 0.9375rem;
+    }
+    .back-link:hover { text-decoration: underline; }
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.35rem, 4vw, 1.75rem);
+      color: var(--accent);
+    }
+    .subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 0.9375rem;
+    }
+    .banner {
+      padding: 12px 14px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-size: 0.875rem;
+      line-height: 1.45;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .banner.warn {
+      border-color: rgba(229, 163, 42, 0.5);
+      color: var(--accent);
+    }
+    .banner.error {
+      border-color: rgba(244, 164, 164, 0.5);
+      color: var(--danger);
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .seg {
+      display: flex;
+      gap: 8px;
+    }
+    .seg button {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .seg button.active[data-type="weightroom"] {
+      background: rgba(255, 229, 153, 0.18);
+      border-color: var(--wr);
+    }
+    .seg button.active[data-type="conditioning"] {
+      background: rgba(159, 197, 232, 0.18);
+      border-color: var(--cond);
+    }
+    #search {
+      flex: 1;
+      min-width: 160px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+    }
+    .pin-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .pin-row input {
+      width: 100px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-family: inherit;
+    }
+    .status {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+      font-size: 0.9375rem;
+    }
+    .status.error { border-color: rgba(244, 164, 164, 0.45); color: var(--danger); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 8px;
+    }
+    .player {
+      padding: 14px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.875rem;
+      line-height: 1.35;
+      font-family: inherit;
+      color: var(--text);
+      transition: background 0.12s, border-color 0.12s;
+      min-height: 52px;
+    }
+    .player:hover:not(:disabled) {
+      border-color: rgba(229, 163, 42, 0.45);
+    }
+    .player.checked {
+      border-color: var(--good);
+      background: rgba(93, 211, 158, 0.14);
+      font-weight: 600;
+    }
+    .player:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+    .player .mark {
+      display: block;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--good);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <a class="back-link" href="/">← Back to Team Tools</a>
+    <h1>Coach check-in</h1>
+    <p class="subtitle">Tap a name to mark <strong>X</strong> for today’s session. Changes save to the attendance sheet.</p>
+
+    <div id="setupBanner" class="banner warn" hidden>
+      Saving is not configured yet. Roster loads from the sheet CSV; deploy Apps Script and set
+      <code>/api/checkin</code> in <code>deploy/nginx.conf</code> (see
+      <code>scripts/coach-check-in/README.md</code>).
+    </div>
+
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Session type">
+        <button type="button" data-type="weightroom" class="active">Weightroom</button>
+        <button type="button" data-type="conditioning">Conditioning</button>
+      </div>
+      <input type="search" id="search" placeholder="Search names…" autocomplete="off" />
+      <div class="pin-row" id="pinRow">
+        <label for="pin">PIN</label>
+        <input type="password" id="pin" inputmode="numeric" autocomplete="current-password" />
+      </div>
+    </div>
+
+    <div id="status" class="status">Loading roster…</div>
+    <div id="grid" class="grid" aria-live="polite"></div>
+  </div>
+
+  <script>
+    const CSV_URL = "/api/attendance.csv";
+    const CHECKIN_API = window.GHFB_CHECKIN_API || "/api/checkin";
+    const PIN_STORAGE_KEY = "ghfb-coach-pin";
+    const SUMMARY_HEADERS = new Set([
+      "Current Total",
+      "Ironman %",
+      "# of sessions this summer",
+      "% required for ironman",
+    ]);
+
+    let sessionType = "weightroom";
+    let players = [];
+    let readOnly = false;
+    let busy = false;
+    let todayLabel = "";
+
+    const statusEl = document.getElementById("status");
+    const gridEl = document.getElementById("grid");
+    const searchEl = document.getElementById("search");
+    const pinEl = document.getElementById("pin");
+    const setupBanner = document.getElementById("setupBanner");
+
+    const savedPin = sessionStorage.getItem(PIN_STORAGE_KEY);
+    if (savedPin) pinEl.value = savedPin;
+    pinEl.addEventListener("change", () => {
+      sessionStorage.setItem(PIN_STORAGE_KEY, pinEl.value.trim());
+    });
+
+    document.querySelectorAll(".seg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".seg button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        sessionType = btn.dataset.type;
+        load();
+      });
+    });
+    searchEl.addEventListener("input", render);
+
+    function getPin() {
+      return pinEl.value.trim();
+    }
+
+    function setStatus(msg, isError) {
+      statusEl.textContent = msg;
+      statusEl.classList.toggle("error", !!isError);
+    }
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let value = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const next = text[i + 1];
+
+        if (ch === '"') {
+          if (inQuotes && next === '"') {
+            value += '"';
+            i++;
+          } else inQuotes = !inQuotes;
+          continue;
+        }
+        if (!inQuotes && ch === ",") {
+          row.push(value);
+          value = "";
+          continue;
+        }
+        if (!inQuotes && (ch === "\n" || ch === "\r")) {
+          if (ch === "\r" && next === "\n") i++;
+          row.push(value);
+          rows.push(row);
+          row = [];
+          value = "";
+          continue;
+        }
+        value += ch;
+      }
+      if (value.length || row.length) {
+        row.push(value);
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    function getPlayerDisplayName(row) {
+      const first = String(row[0] ?? "").trim();
+      const last = String(row[1] ?? "").trim();
+      return `${first} ${last}`.trim();
+    }
+
+    function getDataRows(rows) {
+      const body = rows.slice(1);
+      let end = body.length;
+      while (end > 0) {
+        const row = body[end - 1];
+        const name = getPlayerDisplayName(row);
+        const firstCol = String(row[0] ?? "").trim();
+        if (name || firstCol) break;
+        end -= 1;
+      }
+      return body.slice(0, end).filter((row) => {
+        const name = getPlayerDisplayName(row);
+        if (!name) return false;
+        if (/^first\s*name$/i.test(String(row[0] ?? "").trim())) return false;
+        return true;
+      });
+    }
+
+    function parseHeaderDate(value) {
+      const text = String(value ?? "").trim();
+      let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (match) {
+        let year = Number(match[3]);
+        if (year < 100) year += 2000;
+        const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
+        date.setHours(0, 0, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+      match = text.match(/^(\d{1,2})\/(\d{1,2})$/);
+      if (match) {
+        const year = new Date().getFullYear();
+        const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
+        date.setHours(0, 0, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+      return null;
+    }
+
+    function getTodayLabel() {
+      const d = new Date();
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    function findSessionColumnIndex(headerRow, sessionType) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const type = String(sessionType).toLowerCase();
+
+      for (let col = 2; col < headerRow.length; col++) {
+        const header = String(headerRow[col] ?? "").trim();
+        if (!header || SUMMARY_HEADERS.has(header)) break;
+
+        const dateVal = parseHeaderDate(header);
+        if (!dateVal || dateVal > today) continue;
+        if (dateVal.getTime() !== today.getTime()) continue;
+
+        if (type === "weightroom") return col;
+        if (type === "conditioning") {
+          const next = String(headerRow[col + 1] ?? "").trim().toUpperCase();
+          if (next === "C") return col + 1;
+          return null;
+        }
+      }
+      return null;
+    }
+
+    function buildFromCsv(rows, sessionType) {
+      const headerRow = rows[0] || [];
+      const dataRows = getDataRows(rows);
+      todayLabel = getTodayLabel();
+      const colIdx = findSessionColumnIndex(headerRow, sessionType);
+
+      if (colIdx == null) {
+        return {
+          ok: false,
+          error: `No column found for today (${todayLabel}). Add a "${todayLabel}" header in the sheet first.`,
+          todayLabel,
+        };
+      }
+
+      const players = dataRows.map((row, i) => {
+        const sheetRow = i + 2;
+        const checked = String(row[colIdx] ?? "").trim().toUpperCase() === "X";
+        return { sheetRow, name: getPlayerDisplayName(row), checked };
+      });
+
+      return {
+        ok: true,
+        todayLabel,
+        players,
+        checkedCount: players.filter((p) => p.checked).length,
+        total: players.length,
+        readOnly: true,
+      };
+    }
+
+    async function fetchCsv() {
+      const res = await fetch(CSV_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("Could not load attendance CSV");
+      return parseCSV(await res.text());
+    }
+
+    async function apiGet(action, params) {
+      const qs = new URLSearchParams({ action, ...params });
+      const res = await fetch(`${CHECKIN_API}?${qs}`, { cache: "no-store" });
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(res.ok ? "Invalid API response" : `Check-in API error (${res.status})`);
+      }
+      if (!res.ok && data?.error) throw new Error(data.error);
+      return data;
+    }
+
+    async function apiToggle(sheetRow) {
+      const res = await fetch(CHECKIN_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "toggleCheckIn",
+          sheetRow,
+          sessionType,
+          pin: getPin(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.error || `Save failed (${res.status})`);
+      }
+      return data;
+    }
+
+    async function probeApi() {
+      try {
+        await apiGet("getCheckInData", { sessionType, pin: getPin() });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function applyData(data) {
+      if (!data.ok) {
+        setStatus(data.error, true);
+        players = [];
+        gridEl.innerHTML = "";
+        return;
+      }
+      players = data.players || [];
+      readOnly = !!data.readOnly;
+      todayLabel = data.todayLabel || getTodayLabel();
+      const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
+      const mode = readOnly ? " · view only (API not connected)" : "";
+      setStatus(
+        `${kind} · ${todayLabel} · ${data.checkedCount} / ${data.total} checked in${mode}`,
+        false
+      );
+      setupBanner.hidden = !readOnly;
+      render();
+    }
+
+    function render() {
+      const q = searchEl.value.trim().toLowerCase();
+      gridEl.innerHTML = "";
+      players
+        .filter((p) => !q || p.name.toLowerCase().includes(q))
+        .forEach((p) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "player" + (p.checked ? " checked" : "");
+          btn.disabled = readOnly;
+          btn.innerHTML =
+            p.name + (p.checked ? '<span class="mark">Checked in</span>' : "");
+          btn.addEventListener("click", () => toggle(btn, p.sheetRow));
+          gridEl.appendChild(btn);
+        });
+    }
+
+    async function toggle(btn, sheetRow) {
+      if (busy || readOnly) return;
+      busy = true;
+      btn.disabled = true;
+      try {
+        const res = await apiToggle(sheetRow);
+        const pl = players.find((x) => x.sheetRow === sheetRow);
+        if (pl) pl.checked = res.checked;
+        btn.classList.toggle("checked", res.checked);
+        btn.innerHTML =
+          pl.name + (res.checked ? '<span class="mark">Checked in</span>' : "");
+        const n = players.filter((x) => x.checked).length;
+        const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
+        setStatus(`${kind} · ${todayLabel} · ${n} / ${players.length} checked in`, false);
+      } catch (err) {
+        setStatus(err.message || String(err), true);
+        if (/pin/i.test(String(err.message))) pinEl.focus();
+      } finally {
+        busy = false;
+        btn.disabled = false;
+      }
+    }
+
+    async function load() {
+      setStatus("Loading roster…");
+      gridEl.innerHTML = "";
+      try {
+        if (await probeApi()) {
+          const data = await apiGet("getCheckInData", {
+            sessionType,
+            pin: getPin(),
+          });
+          applyData({ ...data, readOnly: false });
+          return;
+        }
+      } catch (err) {
+        if (/pin/i.test(String(err.message))) {
+          setStatus(err.message, true);
+          pinEl.focus();
+          return;
+        }
+      }
+
+      try {
+        const rows = await fetchCsv();
+        applyData(buildFromCsv(rows, sessionType));
+      } catch (err) {
+        setStatus(err.message || "Could not load roster", true);
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

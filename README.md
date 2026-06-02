@@ -10,6 +10,7 @@ The hub (`index.html`) links six tools in navy/gold styling. The footer shows th
 |------|-----|
 | Film Review Hub | https://mitchelldawkinsjr.github.io/GH-Flim-Review/ |
 | GH Lift | https://ghlift.360web.cloud/ |
+| Coach Check-in | https://ghfb.360web.cloud/check-in.html |
 | Summer Attendance Form | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) |
 | Attendance Dashboard | https://ghfb.360web.cloud/attendance-dashboard.html |
 | 2026 Schedule | https://ghfb.360web.cloud/schedule.html |
@@ -34,6 +35,16 @@ To point at a different sheet, update the Google `proxy_pass` URL in `deploy/ngi
 
 Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sheets and caches responses for 90 seconds on the server).
 
+### Coach check-in
+
+`check-in.html` is a coach tap-list: tap a player to toggle **X** for today’s weightroom or conditioning column.
+
+1. Deploy **`scripts/coach-check-in/Code.gs`** to the attendance spreadsheet (see `scripts/coach-check-in/README.md`).
+2. Set **`location /api/checkin`** `proxy_pass` in `deploy/nginx.conf` to your Apps Script web app `/exec` URL.
+3. Open **Coach Check-in** from the hub.
+
+Until the API proxy is configured, the page loads the roster from CSV in **view-only** mode.
+
 ### Install as app (PWA)
 
 The team tools hub (`index.html`) is installable on phone or desktop — use **Add to Home Screen** on the hub or Chrome/Edge **Install app**. Icons live in `icons/`; `manifest.webmanifest` opens to `/`. The attendance dashboard loads live data from Google Sheets when online.
@@ -44,7 +55,9 @@ The team tools hub (`index.html`) is installable on phone or desktop — use **A
 |------|---------|
 | `index.html` | Team tools hub (PWA entry + install banner) |
 | `schedule.html` / `images/schedule-2026.jpg` | 2026 varsity schedule graphic |
+| `check-in.html` | Coach tap-list check-in |
 | `attendance-dashboard.html` | Live attendance dashboard |
+| `scripts/coach-check-in/` | Apps Script for sheet writes |
 | `manifest.webmanifest` / `sw.js` / `icons/` | PWA install + offline shell |
 | `Dockerfile` / `deploy/nginx.conf` | nginx static image |
 | `docker-compose.prod.yml` | `ghfb-app` on `360ws-network`, port 8020 |
@@ -60,6 +73,7 @@ open index.html
 docker compose -f docker-compose.prod.yml up --build
 open http://localhost:8020/
 open http://localhost:8020/attendance-dashboard.html
+open http://localhost:8020/check-in.html
 ```
 
 ## Deployment (VPS)
