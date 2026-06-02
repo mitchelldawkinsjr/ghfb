@@ -22,7 +22,7 @@ The hub (`index.html`) links six tools in navy/gold styling. The footer shows th
 `attendance-dashboard.html` loads a published Google Sheets CSV (`2026 Summer WR & Conditioning`) and mirrors the workbook’s rolling attendance logic:
 
 - **Column selection:** Same rules as Apps Script `rollingAttendance()` — dated weightroom columns through today, plus `C` conditioning columns; stops at the first future date.
-- **Rolling rate:** Matches Apps Script `rollingAttendance()` — X marks in valid date/`C` columns through today, divided by **(valid columns − 3)**. Headers like `6/1` (no year) count as the current year.
+- **Rolling rate:** `(X marks) ÷ (session slots through today)`, counting each weightroom date header on or before today plus its paired `C` column when it appears in the next column; stops at the first future date. Headers like `6/1` (no year) use the current year.
 - **Ironmen:** Rolling average at or above **`% required for ironman`** from the sheet (typically ~85.4%, i.e. 35÷41 sessions).
 - **Momentum:** Team attendance rate over the last seven valid sessions.
 - **Chart:** Bar chart of each player’s rolling percentage.

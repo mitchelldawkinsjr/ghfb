@@ -110,9 +110,15 @@
       to { transform: translateX(100%); }
     }
     .chart-title {
-      margin: 0 0 14px;
+      margin: 0 0 6px;
       font-size: 1rem;
       font-weight: 600;
+    }
+    .formula-note {
+      margin: 0 0 14px;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      line-height: 1.45;
     }
     .bar-chart {
       display: flex;
@@ -311,6 +317,9 @@
 
   <div class="card chart-wrap is-loading" id="chartCard">
     <h3 class="chart-title">Rolling attendance %</h3>
+    <p class="formula-note" id="rollingFormulaNote">
+      Rolling % = <strong>X</strong> marks ÷ session slots on or before today (each past weightroom date + its paired <strong>C</strong> column when listed next in the sheet).
+    </p>
     <div id="attendanceBarChart" class="bar-chart" aria-label="Rolling attendance by player"></div>
   </div>
 
@@ -338,7 +347,6 @@
     ]);
     const NAME_COLS = [0, 1];
     const ATTENDANCE_START_IDX = 2;
-    const ROLLING_DENOM_OFFSET = 3;
 
     const loadStatus = document.getElementById("loadStatus");
     const tableCard = document.getElementById("tableCard");
@@ -432,9 +440,19 @@
       return text;
     }
 
-    function getValidAttendanceIndexes(headers, attendanceStartIdx) {
+    function getToday() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      return today;
+    }
+
+    /**
+     * Session columns you could have attended as of today:
+     * - each weightroom date header on or before today (stops at first future date)
+     * - the "C" column immediately after that date when present (conditioning slot)
+     */
+    function getValidAttendanceIndexes(headers, attendanceStartIdx) {
+      const today = getToday();
       const indexes = [];
 
       for (let col = attendanceStartIdx; col < headers.length; col++) {
@@ -445,12 +463,14 @@
 
         if (dateVal) {
           if (dateVal > today) break;
-          indexes.push(col);
-          continue;
-        }
 
-        if (header.toUpperCase() === "C") {
           indexes.push(col);
+
+          const nextHeader = String(headers[col + 1] ?? "").trim();
+          if (nextHeader.toUpperCase() === "C") {
+            indexes.push(col + 1);
+          }
+          continue;
         }
       }
       return indexes;
@@ -477,12 +497,15 @@
       return { summerSessions, ironMenThresholdRate, iSessions, iRequired };
     }
 
-  /** Same as Apps Script rollingAttendance(): X in valid date/C cols ÷ (valid cols − 3). */
+    /**
+     * Rolling % = X marks ÷ session columns available through today
+     * (dated weightroom on/before today + paired C; stops at first future date).
+     */
     function computeRollingStats(row, validIndexes) {
       const marks = validIndexes.filter(
         (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
       ).length;
-      const totalPossible = Math.max(0, validIndexes.length - ROLLING_DENOM_OFFSET);
+      const totalPossible = validIndexes.length;
       const rollingRate = totalPossible > 0 ? marks / totalPossible : 0;
       return { marks, totalPossible, rollingRate };
     }
@@ -559,10 +582,7 @@
         return { name, ...rolling };
       });
 
-      const totalPossible = Math.max(
-        0,
-        validAttendanceIndexes.length - ROLLING_DENOM_OFFSET
-      );
+      const totalPossible = validAttendanceIndexes.length;
 
       const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
       const ironMen = playerTotals.filter((p) => p.rollingRate >= ironMenThresholdRate);
@@ -576,9 +596,22 @@
       const momentumPossible = dataRows.length * lastSevenIndexes.length;
       const momentumRate = momentumPossible > 0 ? momentumMarks / momentumPossible : 0;
 
+      const formulaNote = document.getElementById("rollingFormulaNote");
+      if (formulaNote && totalPossible > 0) {
+        const todayLabel = getToday().toLocaleDateString(undefined, {
+          month: "numeric",
+          day: "numeric",
+          year: "numeric",
+        });
+        formulaNote.innerHTML =
+          `As of <strong>${todayLabel}</strong>: rolling % = <strong>X</strong> marks ÷ <strong>${totalPossible}</strong> ` +
+          `session slots (weightroom dates on/before today + paired <strong>C</strong>; future dates excluded). ` +
+          `Leader example: ${top ? `${top.marks}/${totalPossible} = ${formatPct(top.rollingRate)}` : "—"}.`;
+      }
+
       updateSummaryBoxes({
         playerCount: dataRows.length,
-        topPlayerLabel: top ? `${top.name} (${formatPct(top.rollingRate)})` : "N/A",
+        topPlayerLabel: top ? `${top.name} (${top.marks}/${totalPossible}, ${formatPct(top.rollingRate)})` : "N/A",
         ironMenCount: ironMen.length,
         ironMenNamesText: ironMen.length
           ? ironMen.map((p) => `${p.name} (${formatPct(p.rollingRate)})`).join(", ")
