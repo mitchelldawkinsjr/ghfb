@@ -26,6 +26,7 @@ The hub (`index.html`) links six tools in navy/gold styling. The footer shows th
 - **Ironmen:** Rolling average at or above **`% required for ironman`** from the sheet (typically ~85.4%, i.e. 35÷41 sessions).
 - **Momentum:** Team attendance rate over the last seven valid sessions.
 - **Chart:** Bar chart of each player’s rolling percentage.
+- **Roster participation:** Pie charts for % of players with at least one weightroom or conditioning mark in eligible sessions through today.
 - **Table:** Scrollable roster; Jersey # and Grade hidden; row colors inferred from session type (weightroom vs conditioning), `X` marks, empty cells, and a “missed 24+” highlight when applicable (CSV has no fill colors).
 - **Legend:** On-page key matching workbook colors (Conditioning, Weightroom, No Attendance, Missed 24 for Summer).
 
