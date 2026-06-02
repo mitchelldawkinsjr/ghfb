@@ -6,7 +6,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from socketserver import ThreadingMixIn
 
 TARGET = os.environ.get(
     "CHECKIN_SCRIPT_URL",
@@ -36,6 +35,12 @@ class Handler(BaseHTTPRequestHandler):
             return e.code, e.read(), "application/json"
 
     def do_GET(self):
+        if self.path == "/health" or self.path.startswith("/health?"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+            return
         query = ""
         if "?" in self.path:
             query = self.path.split("?", 1)[1]
@@ -69,10 +74,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-class Server(ThreadingMixIn, ThreadingHTTPServer):
-    daemon_threads = True
-
-
 if __name__ == "__main__":
     print("checkin proxy ->", TARGET, "port", PORT)
-    Server(("127.0.0.1", PORT), Handler).serve_forever()
+    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

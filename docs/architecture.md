@@ -15,7 +15,7 @@ flowchart TB
     NPM["Nginx Proxy Manager"]
     subgraph container["Docker ghfb-app :8020"]
       NGX["nginx :80"]
-      PY["checkin_proxy.py :8081<br/>ThreadingHTTPServer"]
+      PY["checkin_proxy.py :8081<br/>ThreadingHTTPServer + /health"]
     end
   end
 

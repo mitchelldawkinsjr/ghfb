@@ -19,7 +19,13 @@ services:
       - "com.360ws.app=ghfb"
       - "com.360ws.type=docker-app"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "wget -qO- http://127.0.0.1/ >/dev/null && wget -qO- http://127.0.0.1:8081/health >/dev/null",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
