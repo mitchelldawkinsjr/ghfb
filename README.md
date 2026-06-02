@@ -37,13 +37,11 @@ Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sh
 
 ### Coach check-in
 
-`check-in.html` is a coach tap-list: tap a player to toggle **X** for today’s weightroom or conditioning column.
+`check-in.html` is a coach tap-list for weightroom / conditioning.
 
-1. Deploy **`scripts/coach-check-in/Code.gs`** to the attendance spreadsheet (see `scripts/coach-check-in/README.md`).
-2. Set **`location /api/checkin`** `proxy_pass` in `deploy/nginx.conf` to your Apps Script web app `/exec` URL.
-3. Open **Coach Check-in** from the hub.
+**Recommended (school sheet, personal deploy):** Share the school spreadsheet with your personal Gmail as **Editor**, create a standalone Apps Script project on your personal account, set `SHEET_ID` in `scripts/coach-check-in/Code.gs`, deploy as web app, paste the `/exec` URL into **`check-in-config.js`**. Full steps: `scripts/coach-check-in/README.md`.
 
-Until the API proxy is configured, the page loads the roster from CSV in **view-only** mode.
+Until the script URL is set, the page loads the roster from CSV in **view-only** mode.
 
 ### Install as app (PWA)
 

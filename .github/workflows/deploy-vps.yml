@@ -5,6 +5,7 @@ on:
     branches: [main, master]
     paths:
       - "*.html"
+      - "check-in-config.js"
       - "manifest.webmanifest"
       - "sw.js"
       - "icons/**"

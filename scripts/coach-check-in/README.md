@@ -1,28 +1,131 @@
 # Coach check-in (Google Apps Script)
 
-Powers **`/check-in.html`** on ghfb via the `/api/checkin` nginx proxy.
+Powers **`/check-in.html`** on ghfb. Writes **X** marks to the attendance sheet; the dashboard reads the same sheet via published CSV.
 
-## Setup
+## Recommended: school sheet + personal Google account
 
-1. Open the **2026 Summer WR & Conditioning** spreadsheet → **Extensions → Apps Script**.
-2. Paste `Code.gs` from this folder (replace or merge with your existing project).
-3. (Optional) **Project settings → Script properties** → `COACH_PIN` = your coach PIN.
-4. **Deploy → New deployment → Web app**
-   - Execute as: **Me**
-   - Who has access: **Anyone with the link** (or your school domain)
-5. Copy the **Web app URL** (ends with `/exec`).
-6. In `deploy/nginx.conf`, set the `proxy_pass` under `location /api/checkin` to that URL (see comment in file).
-7. Redeploy ghfb (push to `main` or `docker compose up --build`).
+Use this when your **school account cannot deploy** Apps Script web apps but **can share** the spreadsheet with your personal Gmail.
+
+### 1. Share the school spreadsheet
+
+On the **school** attendance workbook:
+
+1. **Share** → add your **personal Gmail** as **Editor**.
+2. If blocked, ask IT to allow external sharing for that file or share to your personal **@gmail.com** only.
+
+### 2. Get the spreadsheet ID
+
+From the sheet URL:
+
+```text
+https://docs.google.com/spreadsheets/d/1ABC...xyz/edit
+                                      ^^^^^^^^^^^
+                                      SHEET_ID
+```
+
+Copy the long ID between `/d/` and `/edit`.
+
+### 3. Create script on personal account
+
+1. Go to [script.google.com](https://script.google.com) while logged into **personal** Google.
+2. **New project**.
+3. Paste all of **`Code.gs`** from this folder.
+4. Set at the top:
+
+```javascript
+const SHEET_ID = "paste-school-spreadsheet-id-here";
+```
+
+5. **Save**.
+6. Select **`testSheetAccess`** in the toolbar → **Run** → **Authorize** when prompted.
+7. **View → Logs** should show e.g. `OK: 53 players on 2026 Summer WR & Conditioning`.
+
+### 4. Deploy web app (personal account)
+
+1. **Deploy → New deployment → Web app**
+2. **Execute as:** Me (your personal account)
+3. **Who has access:** Anyone with the link (or Anyone in domain if ghfb + JSONP need it)
+4. **Deploy** → copy URL ending in **`/exec`**
+
+When you change `Code.gs`: **Manage deployments → Edit → New version → Deploy**.
+
+### 5. Connect ghfb
+
+In repo root **`check-in-config.js`**:
+
+```javascript
+window.GHFB_CHECKIN_SCRIPT_URL = "https://script.google.com/macros/s/...../exec";
+```
+
+Push to `main` (or redeploy Docker).
+
+### 6. Optional PIN
+
+Apps Script → **Project settings → Script properties** → add `COACH_PIN`.
+
+---
+
+## Alternative: script bound to school sheet
+
+If your **school account can deploy** web apps:
+
+1. Open the spreadsheet → **Extensions → Apps Script**.
+2. Paste `Code.gs` and set `SHEET_ID` to the same spreadsheet’s ID (or leave empty and change `getSheet_()` to use `getActiveSpreadsheet()` — school-bound only).
+3. Deploy from the school account.
+
+For school-bound projects only, you can use:
+
+```javascript
+function getSheet_() {
+  const ss = SHEET_ID
+    ? SpreadsheetApp.openById(SHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) throw new Error('Tab not found: "' + SHEET_NAME + '"');
+  return sheet;
+}
+```
+
+The repo version **requires `SHEET_ID`** so one file works for personal standalone deploy.
+
+---
+
+## nginx proxy (optional)
+
+Instead of JSONP + `check-in-config.js`, proxy `/api/checkin` to your `/exec` URL in `deploy/nginx.conf`.
+
+---
 
 ## API
 
-| Method | URL | Purpose |
-|--------|-----|---------|
-| GET | `/api/checkin?action=getCheckInData&sessionType=weightroom&pin=` | Roster + today’s marks |
-| POST | `/api/checkin` JSON `{ "action":"toggleCheckIn", "sheetRow": 5, "sessionType": "weightroom", "pin": "" }` | Toggle **X** |
+| Call | Purpose |
+|------|---------|
+| `GET ?action=getCheckInData&sessionType=weightroom&pin=` | Roster + today’s marks |
+| `GET ?action=toggleCheckIn&sheetRow=5&sessionType=weightroom&pin=` | Toggle **X** |
+| `POST` JSON `{ "action":"toggleCheckIn", ... }` | Toggle (via nginx proxy) |
+
+Add `&callback=fnName` for JSONP (used by ghfb).
+
+---
 
 ## Sheet requirements
 
-- Today’s date must exist as a column header (e.g. `6/2`).
-- Conditioning uses the **`C`** column immediately after that date.
-- Player names in columns **A** and **B** (same as the attendance dashboard).
+- Tab name: **`2026 Summer WR & Conditioning`**
+- Today’s date column header (e.g. **`6/2`**)
+- **`C`** column immediately after that date for conditioning
+- Player names in columns **A** and **B**
+
+Form responses and coach tap-list both update this same workbook — no copy needed.
+
+---
+
+## Troubleshooting
+
+| Error | Fix |
+|-------|-----|
+| `Set SHEET_ID in Code.gs` | Paste spreadsheet ID from URL |
+| `Tab not found` | Check `SHEET_NAME` matches tab exactly |
+| Authorization / access denied | Re-run `testSheetAccess`; confirm personal account is **Editor** on school sheet |
+| `No column found for today` | Add today’s date header (+ `C`) on the sheet |
+| ghfb banner “not connected” | Set `GHFB_CHECKIN_SCRIPT_URL` in `check-in-config.js` and redeploy ghfb |
+| School blocks sharing | Use personal copy as master (see main README) or Form-only check-in |

@@ -1,12 +1,20 @@
 /**
  * Coach tap-list check-in for "2026 Summer WR & Conditioning".
- * Deploy as Web app (Execute as: Me, Anyone with the link).
+ *
+ * School sheet + personal Google account (recommended):
+ *   1. Share the school spreadsheet with your personal Gmail as Editor.
+ *   2. Create a standalone Apps Script project on your personal account (script.google.com).
+ *   3. Paste this file, set SHEET_ID below, Run → testSheetAccess once, then Deploy → Web app.
+ *
+ * Deploy: Execute as Me, Anyone with the link (or your domain).
  * Optional Script property: COACH_PIN
  *
- * JSON API (for ghfb check-in.html via /api/checkin proxy):
- *   GET  ?action=getCheckInData&sessionType=weightroom|conditioning&pin=
- *   POST { "action": "toggleCheckIn", "sheetRow": 5, "sessionType": "weightroom", "pin": "" }
+ * JSON API (ghfb check-in.html via check-in-config.js JSONP):
+ *   GET ?action=getCheckInData&sessionType=weightroom|conditioning&pin=
+ *   GET ?action=toggleCheckIn&sheetRow=5&sessionType=weightroom&pin=
  */
+/** School spreadsheet ID from URL: .../spreadsheets/d/COPY_THIS_PART/edit */
+const SHEET_ID = "";
 const SHEET_NAME = "2026 Summer WR & Conditioning";
 const SUMMARY_HEADERS = [
   "Current Total",
@@ -17,14 +25,31 @@ const SUMMARY_HEADERS = [
 
 function doGet(e) {
   const action = String(e?.parameter?.action ?? "").trim();
-  if (action === "getCheckInData") {
-    return jsonOutput_(
-      getCheckInData(e.parameter.sessionType, e.parameter.pin)
-    );
+  if (!action) {
+    return HtmlService.createHtmlOutput(
+      "<p><strong>GHFB Coach Check-in API</strong></p>" +
+        "<p>Use <a href=\"https://ghfb.360web.cloud/check-in.html\">ghfb check-in</a> " +
+        "with this deployment URL in check-in-config.js.</p>"
+    ).setTitle("GHFB Coach Check-in");
   }
-  return HtmlService.createHtmlOutputFromFile("CheckIn")
-    .setTitle("GHFB Coach Check-in")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+  let result;
+  try {
+    if (action === "getCheckInData") {
+      result = getCheckInData(e.parameter.sessionType, e.parameter.pin);
+    } else if (action === "toggleCheckIn") {
+      result = toggleCheckIn(
+        e.parameter.sheetRow,
+        e.parameter.sessionType,
+        e.parameter.pin
+      );
+    } else {
+      result = { ok: false, error: "Unknown action: " + action };
+    }
+  } catch (err) {
+    result = { ok: false, error: String(err.message || err) };
+  }
+  return respond_(e, result);
 }
 
 function doPost(e) {
@@ -106,10 +131,34 @@ function jsonOutput_(obj) {
   );
 }
 
+/** JSON for fetch (/api/checkin proxy) or JSONP for ghfb check-in-config.js */
+function respond_(e, obj) {
+  const callback = String(e?.parameter?.callback ?? "").trim();
+  if (callback && /^[A-Za-z_$][\w.$]*$/.test(callback)) {
+    return ContentService.createTextOutput(
+      callback + "(" + JSON.stringify(obj) + ");"
+    ).setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return jsonOutput_(obj);
+}
+
 function getSheet_() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  if (!sheet) throw new Error('Sheet not found: "' + SHEET_NAME + '"');
+  if (!SHEET_ID) {
+    throw new Error(
+      "Set SHEET_ID in Code.gs to the school spreadsheet ID (share that sheet with this Google account as Editor)."
+    );
+  }
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) throw new Error('Tab not found: "' + SHEET_NAME + '"');
   return sheet;
+}
+
+/** Run once from the script editor (personal account) to authorize sheet access. */
+function testSheetAccess() {
+  const sheet = getSheet_();
+  const roster = getRoster_(sheet);
+  Logger.log("OK: " + roster.length + " players on " + SHEET_NAME);
 }
 
 function verifyPin_(pin) {
