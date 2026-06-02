@@ -49,7 +49,7 @@ Check-in UX: instant roster from cached CSV (shared with the dashboard), grid st
 
 ### Install as app (PWA)
 
-The team tools hub (`index.html`) is installable on phone or desktop — use **Add to Home Screen** on the hub or Chrome/Edge **Install app**. Icons live in `icons/`; `manifest.webmanifest` opens to `/`. The attendance dashboard loads live data from Google Sheets when online.
+The team tools hub (`index.html`) is installable on phone or desktop — use **Add to Home Screen** on the hub or Chrome/Edge **Install app**. Icons live in `icons/`; `manifest.webmanifest` opens to `/index.html`. The attendance dashboard loads live data from Google Sheets when online.
 
 ## Shared front-end modules
 

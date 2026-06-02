@@ -1,9 +1,9 @@
 {
-  "id": "/",
+  "id": "/ghfb-hub",
   "name": "Godwin Heights Football",
   "short_name": "GH Football",
   "description": "Team tools hub for Godwin Heights Football — film, lift, attendance, schedule, and files.",
-  "start_url": "/",
+  "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
