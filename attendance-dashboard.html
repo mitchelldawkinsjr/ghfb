@@ -295,7 +295,7 @@
     </div>
     <div class="summary-box">
       <h2 id="ironMenNumber">—</h2>
-      <p>Ironmen (Rolling Avg ≥ 35/42)</p>
+      <p id="ironMenLabel">Ironmen (rolling avg threshold)</p>
       <div id="ironMenNames" class="ironmen-names"></div>
     </div>
     <div class="summary-box">
@@ -330,8 +330,15 @@
   <script>
     const MISSED_24_THRESHOLD = 24;
     const HIDDEN_HEADERS = new Set(["Jersey #", "Grade"]);
+    const SUMMARY_HEADERS = new Set([
+      "Current Total",
+      "Ironman %",
+      "# of sessions this summer",
+      "% required for ironman",
+    ]);
     const NAME_COLS = [0, 1];
     const ATTENDANCE_START_IDX = 2;
+    const ROLLING_DENOM_OFFSET = 3;
 
     const loadStatus = document.getElementById("loadStatus");
     const tableCard = document.getElementById("tableCard");
@@ -393,6 +400,13 @@
         date.setHours(0, 0, 0, 0);
         return Number.isNaN(date.getTime()) ? null : date;
       }
+      match = text.match(/^(\d{1,2})\/(\d{1,2})$/);
+      if (match) {
+        const year = new Date().getFullYear();
+        const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
+        date.setHours(0, 0, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
       match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
       if (match) {
         const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
@@ -425,6 +439,8 @@
 
       for (let col = attendanceStartIdx; col < headers.length; col++) {
         const header = String(headers[col] ?? "").trim();
+        if (!header || SUMMARY_HEADERS.has(header)) break;
+
         const dateVal = parseHeaderDate(header);
 
         if (dateVal) {
@@ -440,6 +456,37 @@
       return indexes;
     }
 
+    function getSheetMeta(headerRow, dataRows) {
+      const col = (name) => headerRow.findIndex((h) => String(h ?? "").trim() === name);
+      const iSessions = col("# of sessions this summer");
+      const iRequired = col("% required for ironman");
+      const sample = dataRows[0] || [];
+
+      let summerSessions = 0;
+      if (iSessions >= 0 && sample[iSessions]) {
+        summerSessions = Number(String(sample[iSessions]).trim());
+      }
+
+      let ironMenThresholdRate = 35 / 42;
+      if (iRequired >= 0 && sample[iRequired]) {
+        const text = String(sample[iRequired]).trim().replace("%", "");
+        const pct = Number(text);
+        if (!Number.isNaN(pct)) ironMenThresholdRate = pct / 100;
+      }
+
+      return { summerSessions, ironMenThresholdRate, iSessions, iRequired };
+    }
+
+  /** Same as Apps Script rollingAttendance(): X in valid date/C cols ÷ (valid cols − 3). */
+    function computeRollingStats(row, validIndexes) {
+      const marks = validIndexes.filter(
+        (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
+      ).length;
+      const totalPossible = Math.max(0, validIndexes.length - ROLLING_DENOM_OFFSET);
+      const rollingRate = totalPossible > 0 ? marks / totalPossible : 0;
+      return { marks, totalPossible, rollingRate };
+    }
+
     function getHiddenColumnIndexes(headerRow) {
       return new Set(
         headerRow
@@ -449,11 +496,13 @@
       );
     }
 
-    /** All sheet columns except Jersey # / Grade — includes every date & conditioning column. */
+    /** Attendance grid columns only (not summary formula columns at the end). */
     function getTableColumnIndexes(headerRow) {
       const hidden = getHiddenColumnIndexes(headerRow);
       const cols = [];
       for (let idx = 0; idx < headerRow.length; idx++) {
+        const header = String(headerRow[idx] ?? "").trim();
+        if (!header || SUMMARY_HEADERS.has(header)) break;
         if (!hidden.has(idx)) cols.push(idx);
       }
       return cols;
@@ -495,18 +544,25 @@
       const headerRow = rows[0] || [];
       const dataRows = getDataRows(rows);
       const validAttendanceIndexes = getValidAttendanceIndexes(headerRow, ATTENDANCE_START_IDX);
-      const totalPossible = validAttendanceIndexes.length;
       const lastSevenIndexes = validAttendanceIndexes.slice(-7);
-      const ironMenThresholdRate = 35 / 42;
+      const sheetMeta = getSheetMeta(headerRow, dataRows);
+      const ironMenThresholdRate = sheetMeta.ironMenThresholdRate;
+
+      const ironLabel = document.getElementById("ironMenLabel");
+      if (ironLabel) {
+        ironLabel.textContent = `Ironmen (rolling avg ≥ ${formatPct(ironMenThresholdRate)})`;
+      }
 
       const playerTotals = dataRows.map((row) => {
         const name = `${row[0]} ${row[1]}`.trim();
-        const marks = validAttendanceIndexes.filter(
-          (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
-        ).length;
-        const rollingRate = totalPossible > 0 ? marks / totalPossible : 0;
-        return { name, marks, rollingRate };
+        const rolling = computeRollingStats(row, validAttendanceIndexes);
+        return { name, ...rolling };
       });
+
+      const totalPossible = Math.max(
+        0,
+        validAttendanceIndexes.length - ROLLING_DENOM_OFFSET
+      );
 
       const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
       const ironMen = playerTotals.filter((p) => p.rollingRate >= ironMenThresholdRate);
@@ -549,11 +605,9 @@
         let rowMissed24 = false;
 
         if (rowIndex > 0) {
-          const marks = validIndexes.filter(
-            (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
-          ).length;
-          const missed = validIndexes.length - marks;
-          rowMissed24 = missed >= MISSED_24_THRESHOLD;
+          const { marks, totalPossible } = computeRollingStats(row, validIndexes);
+          const missed = totalPossible - marks;
+          rowMissed24 = totalPossible > 0 && missed >= MISSED_24_THRESHOLD;
         }
 
         for (const colIndex of displayCols) {
