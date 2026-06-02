@@ -43,7 +43,7 @@ Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sh
 
 Until the script URL is set, the page loads the roster from CSV in **view-only** mode.
 
-Check-in UX: instant roster from cached CSV (shared with the dashboard), one live API call to sync marks, 45s session cache when switching WR/conditioning, and optimistic tap updates while saves run in the background.
+Check-in UX: instant roster from cached CSV (shared with the dashboard), grid stays tappable while marks sync, a queued save pipeline for rapid roll call, optimistic taps, and a threaded server proxy for parallel `/api/checkin` requests.
 
 ### Install as app (PWA)
 

@@ -163,9 +163,11 @@
       background: rgba(93, 211, 158, 0.14);
       font-weight: 600;
     }
-    .player:disabled {
-      opacity: 0.55;
-      cursor: wait;
+    .player.is-queued {
+      border-color: rgba(229, 163, 42, 0.5);
+    }
+    .player.is-saving {
+      border-color: rgba(159, 197, 232, 0.55);
     }
     .player .mark {
       display: block;
@@ -213,7 +215,12 @@
     const CSV_CACHE_KEY = "ghfb-attendance-csv";
     const CSV_CACHE_TTL_MS = 3 * 60 * 1000;
     const CHECKIN_STATE_TTL_MS = 45 * 1000;
-    const pendingRows = new Set();
+    const saveQueue = [];
+    let saveQueueRunning = false;
+    let syncing = false;
+    let viewOnly = false;
+    const buttonByRow = new Map();
+    const rowUiState = new Map();
     const SUMMARY_HEADERS = new Set([
       "Current Total",
       "Ironman %",
@@ -223,7 +230,6 @@
 
     let sessionType = "weightroom";
     let players = [];
-    let readOnly = false;
     let todayLabel = "";
 
     const statusEl = document.getElementById("status");
@@ -385,7 +391,13 @@
       const players = dataRows.map((row, i) => {
         const sheetRow = i + 2;
         const checked = String(row[colIdx] ?? "").trim().toUpperCase() === "X";
-        return { sheetRow, name: getPlayerDisplayName(row), checked };
+        const checked = String(row[colIdx] ?? "").trim().toUpperCase() === "X";
+        return {
+          sheetRow,
+          name: getPlayerDisplayName(row),
+          checked,
+          serverChecked: checked,
+        };
       });
 
       return {
@@ -394,8 +406,34 @@
         players,
         checkedCount: players.filter((p) => p.checked).length,
         total: players.length,
-        readOnly: true,
+        syncing: true,
+        viewOnly: false,
       };
+    }
+
+    function normalizePlayers(list) {
+      return (list || []).map((p) => ({
+        sheetRow: p.sheetRow,
+        name: p.name,
+        checked: !!p.checked,
+        serverChecked: p.serverChecked != null ? !!p.serverChecked : !!p.checked,
+      }));
+    }
+
+    function mergeLiveMarks(apiData) {
+      if (!apiData?.ok) return;
+      const byRow = new Map(apiData.players.map((p) => [p.sheetRow, !!p.checked]));
+      for (const pl of players) {
+        if (byRow.has(pl.sheetRow)) {
+          const checked = byRow.get(pl.sheetRow);
+          pl.checked = checked;
+          pl.serverChecked = checked;
+        }
+      }
+      syncing = false;
+      refreshAllButtons();
+      setStatus(statusLine(queueSuffix()), false);
+      persistCheckInCache();
     }
 
     function checkInStateCacheKey(type) {
@@ -483,16 +521,59 @@
       return data;
     }
 
-    function statusLine(extra) {
-      const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
-      const n = players.filter((p) => p.checked).length;
-      return `${kind} · ${todayLabel} · ${n} / ${players.length} checked in${extra || ""}`;
+    function queueSuffix() {
+      const q = saveQueue.length;
+      const parts = [];
+      if (syncing) parts.push("syncing marks…");
+      if (q > 0) parts.push(`${q} save${q === 1 ? "" : "s"} queued`);
+      if (viewOnly) parts.push("view only");
+      return parts.length ? ` · ${parts.join(" · ")}` : "";
     }
 
-    function updatePlayerButton(btn, player) {
+    function statusLine() {
+      const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
+      const n = players.filter((p) => p.checked).length;
+      return `${kind} · ${todayLabel} · ${n} / ${players.length} checked in${queueSuffix()}`;
+    }
+
+    function markLabel(player, uiState) {
+      if (uiState === "saving") return '<span class="mark">Saving…</span>';
+      if (uiState === "queued") return '<span class="mark">Queued…</span>';
+      if (player.checked) return '<span class="mark">Checked in</span>';
+      return "";
+    }
+
+    function updatePlayerButton(btn, player, uiState) {
       btn.classList.toggle("checked", player.checked);
-      btn.innerHTML =
-        player.name + (player.checked ? '<span class="mark">Checked in</span>' : "");
+      btn.classList.toggle("is-queued", uiState === "queued");
+      btn.classList.toggle("is-saving", uiState === "saving");
+      btn.innerHTML = player.name + markLabel(player, uiState);
+    }
+
+    function refreshRow(sheetRow) {
+      const btn = buttonByRow.get(sheetRow);
+      const pl = players.find((x) => x.sheetRow === sheetRow);
+      if (!btn || !pl) return;
+      updatePlayerButton(btn, pl, rowUiState.get(sheetRow) || "idle");
+    }
+
+    function refreshAllButtons() {
+      for (const pl of players) refreshRow(pl.sheetRow);
+    }
+
+    function persistCheckInCache() {
+      writeCheckInCache(sessionType, {
+        ok: true,
+        todayLabel,
+        players: players.map((p) => ({
+          sheetRow: p.sheetRow,
+          name: p.name,
+          checked: p.checked,
+        })),
+        checkedCount: players.filter((p) => p.checked).length,
+        total: players.length,
+        sessionType,
+      });
     }
 
     function applyData(data) {
@@ -500,68 +581,116 @@
         setStatus(data.error, true);
         players = [];
         gridEl.innerHTML = "";
+        buttonByRow.clear();
         return;
       }
-      players = data.players || [];
-      readOnly = !!data.readOnly;
+      players = normalizePlayers(data.players);
       todayLabel = data.todayLabel || getTodayLabel();
-      const mode = readOnly ? " · view only (syncing…)" : "";
-      setStatus(statusLine(mode), false);
-      setupBanner.hidden = !readOnly;
+      if (data.syncing != null) syncing = !!data.syncing;
+      if (data.viewOnly != null) viewOnly = !!data.viewOnly;
+      setStatus(statusLine(), false);
+      setupBanner.hidden = !viewOnly;
       render();
     }
 
     function render() {
       const q = searchEl.value.trim().toLowerCase();
       gridEl.innerHTML = "";
+      buttonByRow.clear();
       players
         .filter((p) => !q || p.name.toLowerCase().includes(q))
         .forEach((p) => {
           const btn = document.createElement("button");
           btn.type = "button";
+          const uiState = rowUiState.get(p.sheetRow) || "idle";
           btn.className = "player" + (p.checked ? " checked" : "");
-          btn.disabled = readOnly;
-          btn.innerHTML =
-            p.name + (p.checked ? '<span class="mark">Checked in</span>' : "");
-          btn.addEventListener("click", () => toggle(btn, p.sheetRow));
+          updatePlayerButton(btn, p, uiState);
+          btn.addEventListener("click", () => toggle(p.sheetRow));
+          buttonByRow.set(p.sheetRow, btn);
           gridEl.appendChild(btn);
         });
     }
 
-    async function toggle(btn, sheetRow) {
-      if (readOnly || pendingRows.has(sheetRow)) return;
+    function enqueueSave(sheetRow) {
+      const idx = saveQueue.findIndex((j) => j.sheetRow === sheetRow);
+      if (idx >= 0) saveQueue.splice(idx, 1);
+      saveQueue.push({ sheetRow });
+      rowUiState.set(sheetRow, "queued");
+      refreshRow(sheetRow);
+      setStatus(statusLine(), false);
+      drainSaveQueue();
+    }
+
+    async function syncRowToServer(sheetRow) {
       const pl = players.find((x) => x.sheetRow === sheetRow);
       if (!pl) return;
 
-      const wasChecked = pl.checked;
-      pl.checked = !wasChecked;
-      updatePlayerButton(btn, pl);
-      setStatus(statusLine(), false);
-
-      pendingRows.add(sheetRow);
-      btn.disabled = true;
-      try {
+      let guard = 0;
+      while (pl.checked !== pl.serverChecked && guard < 4) {
+        guard += 1;
         const res = await apiToggle(sheetRow);
-        pl.checked = res.checked;
-        updatePlayerButton(btn, pl);
-        setStatus(statusLine(), false);
-        writeCheckInCache(sessionType, {
-          ok: true,
-          todayLabel,
-          players,
-          checkedCount: players.filter((p) => p.checked).length,
-          total: players.length,
-          sessionType,
-        });
-      } catch (err) {
-        pl.checked = wasChecked;
-        updatePlayerButton(btn, pl);
-        setStatus(err.message || String(err), true);
-        if (/pin/i.test(String(err.message))) pinEl.focus();
-      } finally {
-        pendingRows.delete(sheetRow);
-        btn.disabled = readOnly;
+        pl.serverChecked = !!res.checked;
+        pl.checked = pl.serverChecked;
       }
+    }
+
+    async function drainSaveQueue() {
+      if (saveQueueRunning) return;
+      saveQueueRunning = true;
+      try {
+        while (saveQueue.length > 0) {
+          const job = saveQueue[0];
+          const pl = players.find((x) => x.sheetRow === job.sheetRow);
+          if (!pl) {
+            saveQueue.shift();
+            continue;
+          }
+
+          const pending = saveQueue.filter((j) => j.sheetRow === job.sheetRow);
+          for (const j of pending) {
+            const i = saveQueue.indexOf(j);
+            if (i >= 0) saveQueue.splice(i, 1);
+          }
+
+          if (pl.checked === pl.serverChecked) {
+            rowUiState.set(job.sheetRow, "idle");
+            refreshRow(job.sheetRow);
+            continue;
+          }
+
+          rowUiState.set(job.sheetRow, "saving");
+          refreshRow(job.sheetRow);
+          setStatus(statusLine(), false);
+
+          try {
+            await syncRowToServer(job.sheetRow);
+            rowUiState.set(job.sheetRow, "idle");
+            refreshRow(job.sheetRow);
+            persistCheckInCache();
+          } catch (err) {
+            pl.checked = pl.serverChecked;
+            rowUiState.set(job.sheetRow, "idle");
+            refreshRow(job.sheetRow);
+            setStatus(err.message || String(err), true);
+            if (/pin/i.test(String(err.message))) pinEl.focus();
+          }
+        }
+      } finally {
+        saveQueueRunning = false;
+        setStatus(statusLine(), false);
+        if (saveQueue.length > 0) drainSaveQueue();
+      }
+    }
+
+    function toggle(sheetRow) {
+      if (viewOnly) return;
+      const pl = players.find((x) => x.sheetRow === sheetRow);
+      if (!pl) return;
+
+      pl.checked = !pl.checked;
+      refreshRow(sheetRow);
+      setStatus(statusLine(), false);
+      enqueueSave(sheetRow);
     }
 
     async function load() {
@@ -570,7 +699,7 @@
 
       const cachedApi = readCheckInCache(sessionType);
       if (cachedApi?.ok) {
-        applyData({ ...cachedApi, readOnly: false });
+        applyData({ ...cachedApi, syncing: false, viewOnly: false });
       }
 
       const cachedCsvText = readCsvCache();
@@ -579,22 +708,45 @@
         if (shell.ok) applyData(shell);
       }
 
+      syncing = true;
       try {
         const [rows, apiData] = await Promise.all([
           fetchCsvRows(),
           apiGet("getCheckInData", { sessionType, pin: getPin() }),
         ]);
 
-        if (apiData.ok) {
-          writeCheckInCache(sessionType, apiData);
-          applyData({ ...apiData, readOnly: false });
-          return;
-        }
-
-        setStatus(apiData.error, true);
         if (!players.length && rows) {
           const shell = buildFromCsv(rows, sessionType);
           if (shell.ok) applyData(shell);
+        }
+
+        if (apiData.ok) {
+          if (players.length) {
+            mergeLiveMarks(apiData);
+            writeCheckInCache(sessionType, {
+              ok: true,
+              todayLabel,
+              players: players.map((p) => ({
+                sheetRow: p.sheetRow,
+                name: p.name,
+                checked: p.checked,
+              })),
+              checkedCount: players.filter((p) => p.checked).length,
+              total: players.length,
+              sessionType,
+            });
+          } else {
+            writeCheckInCache(sessionType, apiData);
+            applyData({ ...apiData, syncing: false, viewOnly: false });
+          }
+          return;
+        }
+
+        syncing = false;
+        setStatus(apiData.error, true);
+        if (!players.length && rows) {
+          const shell = buildFromCsv(rows, sessionType);
+          if (shell.ok) applyData({ ...shell, viewOnly: true });
         }
       } catch (err) {
         const msg = err.message || String(err);
@@ -604,12 +756,13 @@
           return;
         }
 
+        syncing = false;
         if (!players.length) {
           try {
             const rows = await fetchCsvRows();
             const shell = buildFromCsv(rows, sessionType);
             if (shell.ok) {
-              applyData(shell);
+              applyData({ ...shell, viewOnly: true });
               return;
             }
             setStatus(shell.error || msg, true);

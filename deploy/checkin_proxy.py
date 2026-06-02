@@ -5,7 +5,8 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import ThreadingMixIn
 
 TARGET = os.environ.get(
     "CHECKIN_SCRIPT_URL",
@@ -68,6 +69,10 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+class Server(ThreadingMixIn, ThreadingHTTPServer):
+    daemon_threads = True
+
+
 if __name__ == "__main__":
     print("checkin proxy ->", TARGET, "port", PORT)
-    HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    Server(("127.0.0.1", PORT), Handler).serve_forever()
