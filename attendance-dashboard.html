@@ -251,37 +251,31 @@
     const CACHE_KEY = "ghfb-attendance-csv";
     const CACHE_TTL_MS = 3 * 60 * 1000;
 
-    window.__attendanceCsvPromise = (function loadAttendanceCsv() {
+    function readCsvCache() {
       try {
         const raw = sessionStorage.getItem(CACHE_KEY);
-        if (raw) {
-          const { savedAt, csv } = JSON.parse(raw);
-          if (csv && Date.now() - savedAt < CACHE_TTL_MS) {
-            fetch(CSV_URL)
-              .then((r) => (r.ok ? r.text() : null))
-              .then((text) => {
-                if (text) {
-                  sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), csv: text }));
-                }
-              })
-              .catch(() => {});
-            return Promise.resolve(csv);
-          }
-        }
-      } catch (_) { /* ignore */ }
+        if (!raw) return null;
+        const { savedAt, csv } = JSON.parse(raw);
+        if (!csv || Date.now() - savedAt >= CACHE_TTL_MS) return null;
+        return csv;
+      } catch (_) {
+        return null;
+      }
+    }
 
-      return fetch(CSV_URL)
-        .then((r) => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.text();
-        })
-        .then((csv) => {
-          try {
-            sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), csv }));
-          } catch (_) { /* ignore */ }
-          return csv;
-        });
-    })();
+    function writeCsvCache(csv) {
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), csv }));
+      } catch (_) { /* ignore */ }
+    }
+
+    function fetchCsvFromServer() {
+      return fetch(CSV_URL, { cache: "no-store" }).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      });
+    }
+
   </script>
 </head>
 <body>
@@ -292,20 +286,20 @@
 
   <div class="summary" id="summarySection">
     <div class="summary-box">
-      <h2 id="totalPlayers"><span class="skeleton-line" aria-hidden="true"></span></h2>
+      <h2 id="totalPlayers">—</h2>
       <p>Total Players</p>
     </div>
     <div class="summary-box">
-      <h2 id="topPlayer"><span class="skeleton-line" aria-hidden="true"></span></h2>
+      <h2 id="topPlayer">—</h2>
       <p>Top Rolling Attendance</p>
     </div>
     <div class="summary-box">
-      <h2 id="ironMenNumber"><span class="skeleton-line" aria-hidden="true"></span></h2>
+      <h2 id="ironMenNumber">—</h2>
       <p>Ironmen (Rolling Avg ≥ 35/42)</p>
       <div id="ironMenNames" class="ironmen-names"></div>
     </div>
     <div class="summary-box">
-      <h2 id="momentumRate"><span class="skeleton-line" aria-hidden="true"></span></h2>
+      <h2 id="momentumRate">—</h2>
       <p>Momentum (Last 7 Sessions)</p>
       <small id="momentumMeta">—</small>
     </div>
@@ -465,9 +459,42 @@
       return cols;
     }
 
+    function getDataRows(rows) {
+      return rows.slice(1).filter((row) => {
+        const first = String(row[0] ?? "").trim();
+        const last = String(row[1] ?? "").trim();
+        if (!first || !last) return false;
+        if (/^first\s*name$/i.test(first) && /^last\s*name$/i.test(last)) return false;
+        return true;
+      });
+    }
+
+    function formatPct(v) {
+      return `${(v * 100).toFixed(1)}%`;
+    }
+
+    function updateSummaryBoxes(stats) {
+      const {
+        playerCount,
+        topPlayerLabel,
+        ironMenCount,
+        ironMenNamesText,
+        momentumPct,
+        momentumMeta,
+      } = stats;
+
+      document.getElementById("totalPlayers").textContent = String(playerCount);
+      document.getElementById("topPlayer").textContent = topPlayerLabel;
+      document.getElementById("ironMenNumber").textContent = String(ironMenCount);
+      document.getElementById("ironMenNames").textContent = ironMenNamesText;
+      document.getElementById("momentumRate").textContent = momentumPct;
+      document.getElementById("momentumMeta").textContent = momentumMeta;
+    }
+
     function buildSummary(rows) {
-      const dataRows = rows.slice(1).filter((row) => row[0] && row[1]);
-      const validAttendanceIndexes = getValidAttendanceIndexes(rows[0] || [], ATTENDANCE_START_IDX);
+      const headerRow = rows[0] || [];
+      const dataRows = getDataRows(rows);
+      const validAttendanceIndexes = getValidAttendanceIndexes(headerRow, ATTENDANCE_START_IDX);
       const totalPossible = validAttendanceIndexes.length;
       const lastSevenIndexes = validAttendanceIndexes.slice(-7);
       const ironMenThresholdRate = 35 / 42;
@@ -483,14 +510,6 @@
 
       const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
       const ironMen = playerTotals.filter((p) => p.rollingRate >= ironMenThresholdRate);
-      const formatPct = (v) => `${(v * 100).toFixed(1)}%`;
-
-      document.getElementById("totalPlayers").textContent = dataRows.length;
-      document.getElementById("topPlayer").textContent = top ? `${top.name} (${formatPct(top.rollingRate)})` : "N/A";
-      document.getElementById("ironMenNumber").textContent = ironMen.length;
-      document.getElementById("ironMenNames").textContent = ironMen.length
-        ? ironMen.map((p) => `${p.name} (${formatPct(p.rollingRate)})`).join(", ")
-        : `No players at ${formatPct(ironMenThresholdRate)} yet (${totalPossible} possible as of today)`;
 
       const momentumMarks = dataRows.reduce((sum, row) => {
         const rowMarks = lastSevenIndexes.filter(
@@ -500,11 +519,24 @@
       }, 0);
       const momentumPossible = dataRows.length * lastSevenIndexes.length;
       const momentumRate = momentumPossible > 0 ? momentumMarks / momentumPossible : 0;
-      document.getElementById("momentumRate").textContent = formatPct(momentumRate);
-      document.getElementById("momentumMeta").textContent =
-        `${lastSevenIndexes.length} sessions · ${momentumMarks}/${momentumPossible} marks`;
 
-      return { playerTotals };
+      updateSummaryBoxes({
+        playerCount: dataRows.length,
+        topPlayerLabel: top ? `${top.name} (${formatPct(top.rollingRate)})` : "N/A",
+        ironMenCount: ironMen.length,
+        ironMenNamesText: ironMen.length
+          ? ironMen.map((p) => `${p.name} (${formatPct(p.rollingRate)})`).join(", ")
+          : totalPossible > 0
+            ? `No players at ${formatPct(ironMenThresholdRate)} yet (${totalPossible} sessions counted)`
+            : "No sessions counted yet as of today",
+        momentumPct: totalPossible > 0 ? formatPct(momentumRate) : "—",
+        momentumMeta:
+          lastSevenIndexes.length > 0
+            ? `${lastSevenIndexes.length} sessions · ${momentumMarks}/${momentumPossible} marks`
+            : "No sessions in range yet",
+      });
+
+      return { playerTotals, dataRows };
     }
 
     function buildTable(rows, ctx) {
@@ -586,7 +618,7 @@
       chartCard.classList.remove("is-loading");
     }
 
-    function renderDashboard(csv) {
+    function renderDashboard(csv, statusLabel) {
       const rows = parseCSV(csv).filter((r) => r.some((c) => c !== ""));
       if (rows.length < 2) throw new Error("No attendance rows found");
 
@@ -598,24 +630,57 @@
 
       const summary = buildSummary(rows);
       buildBarChart(summary.playerTotals);
-      setLoadStatus("Updated just now");
+      setLoadStatus(statusLabel || "Updated just now");
 
       requestAnimationFrame(() => {
         buildTable(rows, { displayCols, columnKinds, validIndexes, validSet });
       });
     }
 
-    window.__attendanceCsvPromise
-      .then((csv) => {
-        renderDashboard(csv);
-      })
-      .catch((error) => {
-        console.error("Error loading CSV:", error);
-        setLoadStatus("Could not load attendance data. Try refreshing.", true);
-        tableCard.classList.remove("is-loading");
-        chartCard.classList.remove("is-loading");
-        if (barChartEl) barChartEl.innerHTML = "";
-      });
+    function startAttendanceLoad() {
+      const cached = readCsvCache();
+      if (cached) {
+        try {
+          renderDashboard(cached, "Showing cached data…");
+        } catch (e) {
+          console.warn("Cached CSV invalid:", e);
+        }
+        fetchCsvFromServer()
+          .then((fresh) => {
+            writeCsvCache(fresh);
+            renderDashboard(fresh, "Updated just now");
+          })
+          .catch((err) => {
+            console.warn("Background refresh failed:", err);
+            if (!cached) throw err;
+            setLoadStatus("Showing cached data (refresh failed)", true);
+          });
+        return;
+      }
+
+      fetchCsvFromServer()
+        .then((csv) => {
+          writeCsvCache(csv);
+          renderDashboard(csv, "Updated just now");
+        })
+        .catch((error) => {
+          console.error("Error loading CSV:", error);
+          setLoadStatus("Could not load attendance data. Try refreshing.", true);
+          updateSummaryBoxes({
+            playerCount: 0,
+            topPlayerLabel: "N/A",
+            ironMenCount: 0,
+            ironMenNamesText: "",
+            momentumPct: "—",
+            momentumMeta: "—",
+          });
+          tableCard.classList.remove("is-loading");
+          chartCard.classList.remove("is-loading");
+          if (barChartEl) barChartEl.innerHTML = "";
+        });
+    }
+
+    startAttendanceLoad();
   </script>
 </body>
 </html>
