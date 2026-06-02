@@ -608,23 +608,28 @@
       return cols;
     }
 
-    function isSheetMetaRow(row) {
-      const tag = String(row[56] ?? row[57] ?? "").trim();
-      if (/% of total roster|in Weightroom|at Conditioning|min required|min summer/i.test(tag)) {
-        return true;
-      }
+    /** Same name rule as updatePlayerDropdown() in the sheet Apps Script. */
+    function getPlayerDisplayName(row) {
       const first = String(row[0] ?? "").trim();
-      if (/% of total roster/i.test(first)) return true;
-      return false;
+      const last = String(row[1] ?? "").trim();
+      return `${first} ${last}`.trim();
     }
 
     function getDataRows(rows) {
-      return rows.slice(1).filter((row) => {
-        const first = String(row[0] ?? "").trim();
-        const last = String(row[1] ?? "").trim();
-        if (!first || !last) return false;
-        if (/^first\s*name$/i.test(first) && /^last\s*name$/i.test(last)) return false;
-        if (isSheetMetaRow(row)) return false;
+      const body = rows.slice(1);
+      let end = body.length;
+      while (end > 0) {
+        const row = body[end - 1];
+        const name = getPlayerDisplayName(row);
+        const firstCol = String(row[0] ?? "").trim();
+        if (name || firstCol) break;
+        end -= 1;
+      }
+
+      return body.slice(0, end).filter((row) => {
+        const name = getPlayerDisplayName(row);
+        if (!name) return false;
+        if (/^first\s*name$/i.test(String(row[0] ?? "").trim())) return false;
         return true;
       });
     }
@@ -738,7 +743,7 @@
       }
 
       const playerTotals = dataRows.map((row) => {
-        const name = `${row[0]} ${row[1]}`.trim();
+        const name = getPlayerDisplayName(row);
         const rolling = computeRollingStats(row, validAttendanceIndexes);
         return { name, ...rolling };
       });
