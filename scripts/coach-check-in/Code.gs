@@ -72,12 +72,7 @@ function getCheckInData(sessionType, pin) {
   if (!sessionCol) {
     return {
       ok: false,
-      error:
-        "No column found for today (" +
-        todayLabel +
-        '). Add a "' +
-        todayLabel +
-        '" date header in the sheet first.',
+      error: sessionNotScheduledMessage_(sessionType, todayLabel, sheet),
       sessionType: String(sessionType || "weightroom"),
       todayLabel: todayLabel,
     };
@@ -116,7 +111,9 @@ function toggleCheckIn(sheetRow, sessionType, pin) {
   var sheet = getSheet_();
   var sessionCol = findSessionColumn_(sheet, sessionType);
   if (!sessionCol) {
-    throw new Error("Today session column was not found. Add it in the sheet first.");
+    throw new Error(
+      sessionNotScheduledMessage_(sessionType, getTodayHeaderCandidates_()[0], sheet)
+    );
   }
 
   var row = Number(sheetRow);
@@ -259,6 +256,51 @@ function findSessionColumn_(sheet, sessionType) {
     }
   }
   return null;
+}
+
+function findTodayDateColumn_(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var today = startOfDay_(new Date());
+  var c;
+
+  for (c = 0; c < headers.length; c++) {
+    var header = headerToString_(headers[c]);
+    if (!header) continue;
+    if (SUMMARY_HEADERS.indexOf(header) >= 0) break;
+
+    var dateVal = parseHeaderDate_(headers[c]);
+    if (dateVal && isSameDay_(dateVal, today)) return c + 1;
+  }
+  return null;
+}
+
+function sessionNotScheduledMessage_(sessionType, todayLabel, sheet) {
+  var type = String(sessionType != null ? sessionType : "weightroom").toLowerCase();
+  var label = todayLabel || getTodayHeaderCandidates_()[0];
+  var dateCol = sheet ? findTodayDateColumn_(sheet) : null;
+  var addDayHint =
+    "If today should count toward attendance, add a new column in the spreadsheet labeled " +
+    label +
+    " (weight room), with a C column immediately to its right (conditioning).";
+
+  if (type === "conditioning" && dateCol) {
+    return (
+      "No scheduled conditioning session for today (" +
+      label +
+      "). The weight room column for " +
+      label +
+      " is set up, but the conditioning column (C) is missing. " +
+      "Add a C column in the spreadsheet immediately after " +
+      label +
+      "."
+    );
+  }
+
+  if (type === "weightroom") {
+    return "No scheduled weight room session for today (" + label + "). " + addDayHint;
+  }
+
+  return "No scheduled weight room or conditioning for today (" + label + "). " + addDayHint;
 }
 
 /** Normalize row-1 header cells (text "6/2" or Sheets date values). */

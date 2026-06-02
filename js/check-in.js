@@ -4,6 +4,7 @@ import {
   getPlayerDisplayName,
   getTodayLabel,
   findSessionColumnIndex,
+  getSessionNotScheduledMessage,
 } from "/shared/ghfb-attendance.js";
 
 const CHECKIN_API = window.GHFB_CHECKIN_API || "/api/checkin";
@@ -60,7 +61,7 @@ function buildFromCsv(rows, type) {
   if (colIdx == null) {
     return {
       ok: false,
-      error: `No column found for today (${todayLabel}). Add a "${todayLabel}" header in the sheet first.`,
+      error: getSessionNotScheduledMessage(type, todayLabel, headerRow),
       todayLabel,
     };
   }

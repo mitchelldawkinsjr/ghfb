@@ -126,6 +126,6 @@ Form responses and coach tap-list both update this same workbook — no copy nee
 | `Set SHEET_ID in Code.gs` | Paste spreadsheet ID from URL |
 | `Tab not found` | Check `SHEET_NAME` matches tab exactly |
 | Authorization / access denied | Re-run `testSheetAccess`; confirm personal account is **Editor** on school sheet |
-| `No column found for today` | Add today’s date header (+ `C`) on the sheet |
+| `No scheduled weight room…` / `No scheduled conditioning…` | Add today’s date column and/or the `C` column next to it on the sheet (see check-in status message) |
 | ghfb banner “not connected” | Set `GHFB_CHECKIN_SCRIPT_URL` in `check-in-config.js` and redeploy ghfb |
 | School blocks sharing | Use personal copy as master (see main README) or Form-only check-in |

@@ -112,6 +112,44 @@ export function findSessionColumnIndex(headerRow, sessionType) {
   return null;
 }
 
+/** Column index for today's weight room date header, or null if not on the sheet. */
+export function findTodayDateColumnIndex(headerRow) {
+  const today = getToday();
+
+  for (let col = ATTENDANCE_START_IDX; col < headerRow.length; col++) {
+    const header = String(headerRow[col] ?? "").trim();
+    if (!header || SUMMARY_HEADERS.has(header)) break;
+
+    const dateVal = parseHeaderDate(header);
+    if (!dateVal || dateVal > today) continue;
+    if (dateVal.getTime() === today.getTime()) return col;
+  }
+  return null;
+}
+
+/** Coach-facing message when today's session column is missing from the sheet. */
+export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow) {
+  const type = String(sessionType).toLowerCase();
+  const label = todayLabel || getTodayLabel();
+  const dateCol = headerRow ? findTodayDateColumnIndex(headerRow) : null;
+  const addDayHint =
+    `If today should count toward attendance, add a new column in the spreadsheet labeled ${label} (weight room), with a C column immediately to its right (conditioning).`;
+
+  if (type === "conditioning" && dateCol != null) {
+    return (
+      `No scheduled conditioning session for today (${label}). ` +
+      `The weight room column for ${label} is set up, but the conditioning column (C) is missing. ` +
+      `Add a C column in the spreadsheet immediately after ${label}.`
+    );
+  }
+
+  if (type === "weightroom") {
+    return `No scheduled weight room session for today (${label}). ${addDayHint}`;
+  }
+
+  return `No scheduled weight room or conditioning for today (${label}). ${addDayHint}`;
+}
+
 export function getSheetMeta(headerRow, dataRows) {
   const col = (name) => headerRow.findIndex((h) => String(h ?? "").trim() === name);
   const iSessions = col("# of sessions this summer");
