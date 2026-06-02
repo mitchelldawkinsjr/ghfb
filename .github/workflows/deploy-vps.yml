@@ -11,6 +11,7 @@ on:
       - "icons/**"
       - "images/**"
       - "deploy/**"
+      - "check-in-config.js"
       - "Dockerfile"
       - "docker-compose.prod.yml"
       - ".github/workflows/deploy-vps.yml"
