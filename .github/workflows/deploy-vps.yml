@@ -24,7 +24,18 @@ jobs:
   deploy:
     name: Deploy ghfb to mitch-cloud
     runs-on: [self-hosted, Linux, mitch-cloud, ghfb]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.event_name != 'pull_request_target' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        )
+      ) &&
+      github.event.repository.fork == false &&
+      github.repository == 'mitchelldawkinsjr/ghfb'
 
     steps:
       - name: Checkout code
