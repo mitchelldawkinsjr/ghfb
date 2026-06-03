@@ -110,6 +110,53 @@
       font-size: 13px;
       line-height: 1.45;
     }
+    .attention-title {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .attention-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .attention-block h4 {
+      margin: 0 0 8px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .attention-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .attention-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+    .attention-list li:last-child {
+      border-bottom: 0;
+    }
+    .attention-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .attention-meta {
+      display: block;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .attention-empty {
+      margin: 0;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -365,6 +412,12 @@
       <p id="ironMenLabel">Ironmen (rolling avg threshold)</p>
       <div id="ironMenNames" class="ironmen-list" aria-live="polite"></div>
     </div>
+  </div>
+
+  <div class="card is-loading" id="attentionCard">
+    <h3 class="attention-title">Needs attention</h3>
+    <p class="formula-note">Players to follow up with — near the ironman line, heavy misses, or WR/conditioning split.</p>
+    <div class="attention-grid" id="attentionGrid"></div>
   </div>
 
   <div class="card table-wrap is-loading" id="tableCard">

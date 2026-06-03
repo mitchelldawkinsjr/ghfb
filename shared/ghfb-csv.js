@@ -65,6 +65,14 @@ export function writeCsvCache(csv) {
   }
 }
 
+export function clearCsvCache() {
+  try {
+    sessionStorage.removeItem(CSV_CACHE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function fetchCsvText() {
   return fetch(CSV_URL, { cache: "no-store" }).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);

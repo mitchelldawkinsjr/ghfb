@@ -3,6 +3,7 @@ import {
   readCsvCache,
   writeCsvCache,
   fetchCsvText,
+  clearCsvCache,
   filterNonEmptyRows,
 } from "/shared/ghfb-csv.js";
 import {
@@ -11,20 +12,18 @@ import {
   formatHeaderLabel,
   getToday,
   getValidAttendanceIndexes,
-  getSheetMeta,
   computeRollingStats,
   getTableColumnIndexes,
-  getPlayerDisplayName,
-  getDataRows,
-  computeRosterParticipation,
+  buildAttendanceSummary,
+  computeAtRiskPlayers,
+  MISSED_24_THRESHOLD,
 } from "/shared/ghfb-attendance.js";
 import { formatPct, escapeHtml } from "/shared/ghfb-dom.js";
-
-const MISSED_24_THRESHOLD = 24;
 
 const loadStatus = document.getElementById("loadStatus");
 const tableCard = document.getElementById("tableCard");
 const chartCard = document.getElementById("chartCard");
+const attentionCard = document.getElementById("attentionCard");
 const barChartEl = document.getElementById("attendanceBarChart");
 
 function setLoadStatus(text, isError) {
@@ -119,38 +118,67 @@ function updateSummaryBoxes(stats) {
   document.getElementById("momentumMeta").textContent = momentumMeta;
 }
 
-function buildSummary(rows) {
-  const headerRow = rows[0] || [];
-  const dataRows = getDataRows(rows);
-  const validAttendanceIndexes = getValidAttendanceIndexes(headerRow, ATTENDANCE_START_IDX);
-  const lastSevenIndexes = validAttendanceIndexes.slice(-7);
-  const sheetMeta = getSheetMeta(headerRow, dataRows);
-  const ironMenThresholdRate = sheetMeta.ironMenThresholdRate;
+function renderAttentionList(title, players) {
+  if (!players.length) {
+    return (
+      `<div class="attention-block">` +
+      `<h4>${escapeHtml(title)}</h4>` +
+      `<p class="attention-empty">No one in this group right now.</p>` +
+      `</div>`
+    );
+  }
+
+  const items = players
+    .map(
+      (player) =>
+        `<li>` +
+        `<span class="attention-name">${escapeHtml(player.name)}</span>` +
+        `<span class="attention-meta">${formatPct(player.rollingRate)} · ${escapeHtml(player.reason)}</span>` +
+        `</li>`
+    )
+    .join("");
+
+  return (
+    `<div class="attention-block">` +
+    `<h4>${escapeHtml(title)}</h4>` +
+    `<ul class="attention-list">${items}</ul>` +
+    `</div>`
+  );
+}
+
+function buildAttentionPanel(summary) {
+  const grid = document.getElementById("attentionGrid");
+  if (!grid) return;
+
+  const atRisk = computeAtRiskPlayers(summary);
+  grid.innerHTML =
+    renderAttentionList("Near ironman line", atRisk.nearIronman) +
+    renderAttentionList(`Heavy misses (${MISSED_24_THRESHOLD}+)`, atRisk.heavyMisses) +
+    renderAttentionList("WR / conditioning gap", atRisk.splitAttendance);
+
+  attentionCard?.classList.remove("is-loading");
+}
+
+function applySummaryToDom(summary) {
+  const {
+    playerTotals,
+    dataRows,
+    validIndexes,
+    ironMen,
+    ironMenThresholdRate,
+    momentumRate,
+    momentumMarks,
+    momentumPossible,
+    top,
+    totalPossible,
+    lastSevenIndexes,
+    rosterParticipation,
+  } = summary;
 
   const ironLabel = document.getElementById("ironMenLabel");
   if (ironLabel) {
     ironLabel.textContent = `Ironmen (rolling avg ≥ ${formatPct(ironMenThresholdRate)})`;
   }
-
-  const playerTotals = dataRows.map((row) => {
-    const name = getPlayerDisplayName(row);
-    const rolling = computeRollingStats(row, validAttendanceIndexes);
-    return { name, ...rolling };
-  });
-
-  const totalPossible = validAttendanceIndexes.length;
-
-  const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
-  const ironMen = playerTotals.filter((p) => p.rollingRate >= ironMenThresholdRate);
-
-  const momentumMarks = dataRows.reduce((sum, row) => {
-    const rowMarks = lastSevenIndexes.filter(
-      (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
-    ).length;
-    return sum + rowMarks;
-  }, 0);
-  const momentumPossible = dataRows.length * lastSevenIndexes.length;
-  const momentumRate = momentumPossible > 0 ? momentumMarks / momentumPossible : 0;
 
   const formulaNote = document.getElementById("rollingFormulaNote");
   if (formulaNote && totalPossible > 0) {
@@ -165,12 +193,8 @@ function buildSummary(rows) {
       `Leader example: ${top ? `${top.marks}/${totalPossible} = ${formatPct(top.rollingRate)}` : "—"}.`;
   }
 
-  const rosterParticipation = computeRosterParticipation(
-    dataRows,
-    headerRow,
-    validAttendanceIndexes
-  );
   buildRosterPieCharts(rosterParticipation);
+  buildAttentionPanel(summary);
 
   updateSummaryBoxes({
     playerCount: dataRows.length,
@@ -191,7 +215,7 @@ function buildSummary(rows) {
         : "No sessions in range yet",
   });
 
-  return { playerTotals, dataRows, rosterParticipation };
+  return { playerTotals, dataRows, validIndexes };
 }
 
 function buildTable(rows, ctx) {
@@ -273,7 +297,8 @@ function renderDashboard(csv, statusLabel) {
   const validIndexes = getValidAttendanceIndexes(headerRow, ATTENDANCE_START_IDX);
   const validSet = new Set(validIndexes);
 
-  const summary = buildSummary(rows);
+  const summary = buildAttendanceSummary(rows);
+  applySummaryToDom(summary);
   buildBarChart(summary.playerTotals);
   setLoadStatus(statusLabel || "Updated just now");
 
@@ -283,7 +308,10 @@ function renderDashboard(csv, statusLabel) {
 }
 
 function startAttendanceLoad() {
-  const cached = readCsvCache();
+  const forceRefresh = new URLSearchParams(window.location.search).get("refresh") === "1";
+  if (forceRefresh) clearCsvCache();
+
+  const cached = forceRefresh ? null : readCsvCache();
   if (cached) {
     try {
       renderDashboard(cached, "Showing cached data…");
@@ -320,9 +348,12 @@ function startAttendanceLoad() {
         momentumPct: "—",
         momentumMeta: "—",
       });
-      tableCard.classList.remove("is-loading");
-      chartCard.classList.remove("is-loading");
+      tableCard?.classList.remove("is-loading");
+      chartCard?.classList.remove("is-loading");
+      attentionCard?.classList.remove("is-loading");
       if (barChartEl) barChartEl.innerHTML = "";
+      const grid = document.getElementById("attentionGrid");
+      if (grid) grid.innerHTML = "";
     });
 }
 

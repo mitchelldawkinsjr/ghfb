@@ -4,11 +4,12 @@
 
 | Route | File | Role | Data |
 |-------|------|------|------|
-| `/` | `index.html` | Team tools hub (PWA entry) | Static links only |
+| `/` | `index.html` | Team tools hub (PWA entry) | Attendance CSV + lift plan CSV (today strip) |
 | `/check-in.html` | Coach roll call | **Write** today’s marks | CSV (fast) + `/api/checkin` |
 | `/attendance-dashboard.html` | Analytics dashboard | **Read** rolling stats | `/api/attendance.csv` |
 | `/schedule.html` | 2026 schedule graphic | Static | `images/schedule-2026.jpg` |
 | `/api/attendance.csv` | nginx proxy | Cached CSV feed | Google Sheets publish URL |
+| `/api/lift-plan.csv` | nginx proxy | Cached CSV feed | Daily Lift Plan tab (`gid=1599839883`) |
 | `/api/checkin` | Python proxy | Uncached JSON API | Apps Script `/exec` |
 | `/manifest.webmanifest` | PWA manifest | Install metadata | — |
 | `/sw.js` | Service worker | Offline hub shell | Precache hub assets |

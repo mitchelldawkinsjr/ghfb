@@ -2,7 +2,7 @@
 
 Static landing page for Godwin Heights Football apps and resources. Live at **https://ghfb.360web.cloud**.
 
-The hub (`index.html`) links team tools in navy/gold styling. The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
+The hub (`index.html`) links team tools in navy/gold styling and includes a **Today** strip (lift plan, attendance column status, momentum, ironmen, quick links). The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
 
 **Architecture docs:** [docs/README.md](docs/README.md) — sitemap, data flows, deploy, and sheet model.
 
@@ -31,10 +31,15 @@ The hub (`index.html`) links team tools in navy/gold styling. The footer shows t
 - **Chart:** Bar chart of each player’s rolling percentage.
 - **Roster participation:** Pie charts for weightroom and conditioning participation through today.
 - **Table:** Scrollable roster with session-type row styling and legend.
+- **Needs attention:** Near ironman line, heavy misses (24+), and WR/conditioning split lists.
 
 To point at a different sheet, update the Google `proxy_pass` URL in `deploy/nginx.conf`.
 
 Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sheets with a short server cache).
+
+### Daily lift plan (sheet tab)
+
+Add a **`Daily Lift Plan`** tab on the school spreadsheet with columns **Date**, **Label**, **Phase**, **Session**, and optional **Notes** / **LiftLink**. Publish that tab to web (CSV); ghfb proxies it at **`/api/lift-plan.csv`** (`gid=1599839883` in `deploy/nginx.conf`). The hub today strip and check-in banner read today’s row. Full schema: [docs/sheet-model.md](docs/sheet-model.md).
 
 ### Coach check-in
 
@@ -54,8 +59,10 @@ The team tools hub is installable — use **Add to Home Screen** on the hub or *
 |------|---------|
 | `shared/theme.css` | Navy/gold CSS variables, back link, card tokens |
 | `shared/ghfb-csv.js` | CSV parse, session cache, fetch `/api/attendance.csv` |
-| `shared/ghfb-attendance.js` | Sheet column rules, rolling stats, roster rows |
+| `shared/ghfb-attendance.js` | Sheet column rules, rolling stats, roster rows, at-risk helpers |
+| `shared/ghfb-lift-plan.js` | Daily lift plan CSV fetch and today lookup |
 | `shared/ghfb-dom.js` | `formatPct`, `escapeHtml` |
+| `js/hub-today.js` | Hub today strip |
 | `js/attendance-dashboard.js` | Dashboard UI |
 | `js/check-in.js` | Coach check-in UI |
 

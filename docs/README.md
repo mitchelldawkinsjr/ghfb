@@ -7,7 +7,7 @@ Architecture and flow documentation for the [Godwin Heights Football](https://gh
 | [architecture.md](./architecture.md) | System overview, data authority, runtime |
 | [sitemap.md](./sitemap.md) | Routes, hub links, off-repo artifacts |
 | [sheet-model.md](./sheet-model.md) | Spreadsheet columns and mark conventions |
-| [flows-hub-pwa.md](./flows-hub-pwa.md) | Landing page and installable PWA |
+| [flows-hub-pwa.md](./flows-hub-pwa.md) | Landing page, today strip, installable PWA |
 | [flows-attendance-dashboard.md](./flows-attendance-dashboard.md) | Read-only analytics from CSV |
 | [flows-coach-check-in.md](./flows-coach-check-in.md) | Coach roll call, API, save queue |
 | [flows-deploy.md](./flows-deploy.md) | GitHub Actions, Docker, Apps Script |

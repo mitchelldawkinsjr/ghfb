@@ -43,12 +43,13 @@ flowchart TD
 | Ironmen chips | Rolling % ≥ `% required for ironman` |
 | Roster pie charts | % of roster with ≥1 WR or conditioning mark in eligible sessions |
 | Bar chart | Per-player rolling % |
+| Needs attention | Near ironman line, 24+ misses, WR/conditioning split (`computeAtRiskPlayers`) |
 | Table | Row styling from mark pattern (WR vs conditioning, empty, missed-24 highlight) |
 | Legend | Workbook color key (conditioning, weightroom, no attendance, missed 24) |
 
 ## Relationship to check-in
 
-Both pages use the same CSV URL and `sessionStorage` key `ghfb-attendance-csv` (3 minute TTL). Coaches checking players in update the sheet immediately; the dashboard picks up changes after cache expiry.
+Both pages use the same CSV URL and `sessionStorage` key `ghfb-attendance-csv` (3 minute TTL). Coaches checking players in update the sheet immediately; the dashboard picks up changes after cache expiry unless check-in clears the cache or the dashboard is opened with `?refresh=1`.
 
 ## Sheet model
 

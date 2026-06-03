@@ -256,3 +256,187 @@ export function computeRosterParticipation(dataRows, headerRow, validIndexes) {
     conditioningCols: conditioningCols.length,
   };
 }
+
+export const MISSED_24_THRESHOLD = 24;
+export const NEAR_IRONMAN_MARGIN = 0.08;
+export const AT_RISK_MAX = 8;
+
+/** Rolling stats, momentum, ironmen, and roster participation from parsed attendance rows. */
+export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_START_IDX) {
+  const headerRow = rows[0] || [];
+  const dataRows = getDataRows(rows);
+  const validIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx);
+  const lastSevenIndexes = validIndexes.slice(-7);
+  const sheetMeta = getSheetMeta(headerRow, dataRows);
+  const ironMenThresholdRate = sheetMeta.ironMenThresholdRate;
+  const todayLabel = getTodayLabel();
+
+  const playerTotals = dataRows.map((row) => {
+    const name = getPlayerDisplayName(row);
+    const rolling = computeRollingStats(row, validIndexes);
+    return { name, ...rolling };
+  });
+
+  const totalPossible = validIndexes.length;
+  const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
+  const ironMen = playerTotals.filter((p) => p.rollingRate >= ironMenThresholdRate);
+
+  const momentumMarks = dataRows.reduce((sum, row) => {
+    const rowMarks = lastSevenIndexes.filter(
+      (idx) => String(row[idx] ?? "").trim().toUpperCase() === "X"
+    ).length;
+    return sum + rowMarks;
+  }, 0);
+  const momentumPossible = dataRows.length * lastSevenIndexes.length;
+  const momentumRate = momentumPossible > 0 ? momentumMarks / momentumPossible : 0;
+
+  const rosterParticipation = computeRosterParticipation(dataRows, headerRow, validIndexes);
+
+  return {
+    playerTotals,
+    dataRows,
+    headerRow,
+    validIndexes,
+    lastSevenIndexes,
+    ironMen,
+    ironMenThresholdRate,
+    momentumRate,
+    momentumMarks,
+    momentumPossible,
+    top,
+    totalPossible,
+    todayLabel,
+    rosterParticipation,
+  };
+}
+
+/** Today's weight room / conditioning column setup and check-in counts. */
+export function getTodaySessionStatus(headerRow, dataRows) {
+  const weightroomCol = findSessionColumnIndex(headerRow, "weightroom");
+  const conditioningCol = findSessionColumnIndex(headerRow, "conditioning");
+  const dateCol = findTodayDateColumnIndex(headerRow);
+  const total = dataRows?.length ?? 0;
+  let wrChecked = 0;
+  let condChecked = 0;
+
+  if (dataRows?.length) {
+    if (weightroomCol != null) {
+      wrChecked = dataRows.filter((row) => cellIsMark(row, weightroomCol)).length;
+    }
+    if (conditioningCol != null) {
+      condChecked = dataRows.filter((row) => cellIsMark(row, conditioningCol)).length;
+    }
+  }
+
+  return {
+    weightroomCol,
+    conditioningCol,
+    dateCol,
+    wrChecked,
+    condChecked,
+    total,
+  };
+}
+
+/** Coach call lists for players who need a conversation. */
+export function computeAtRiskPlayers(ctx) {
+  const {
+    playerTotals,
+    dataRows,
+    headerRow,
+    validIndexes,
+    ironMenThresholdRate,
+  } = ctx;
+
+  const weightroomCols = validIndexes.filter(
+    (idx) => getColumnKind(headerRow[idx]) === "weightroom"
+  );
+  const conditioningCols = validIndexes.filter(
+    (idx) => getColumnKind(headerRow[idx]) === "conditioning"
+  );
+
+  const nearIronman = [];
+  const heavyMisses = [];
+  const splitAttendance = [];
+
+  for (const player of playerTotals) {
+    const { name, rollingRate, marks, totalPossible } = player;
+    const missed = totalPossible - marks;
+
+    if (
+      totalPossible > 0 &&
+      rollingRate < ironMenThresholdRate &&
+      rollingRate >= ironMenThresholdRate - NEAR_IRONMAN_MARGIN
+    ) {
+      const marksNeeded = Math.max(0, Math.ceil(ironMenThresholdRate * totalPossible) - marks);
+      nearIronman.push({
+        name,
+        rollingRate,
+        reason: `${marksNeeded} more mark${marksNeeded === 1 ? "" : "s"} needed for ironman`,
+      });
+    }
+
+    if (totalPossible > 0 && missed >= MISSED_24_THRESHOLD) {
+      heavyMisses.push({
+        name,
+        rollingRate,
+        reason: `${missed} missed sessions`,
+      });
+    }
+  }
+
+  for (const row of dataRows) {
+    const name = getPlayerDisplayName(row);
+    const wrMarks = weightroomCols.filter((idx) => cellIsMark(row, idx)).length;
+    const condMarks = conditioningCols.filter((idx) => cellIsMark(row, idx)).length;
+    const player = playerTotals.find((p) => p.name === name);
+    const rollingRate = player?.rollingRate ?? 0;
+
+    if (wrMarks > 0 && condMarks === 0 && conditioningCols.length > 0) {
+      splitAttendance.push({
+        name,
+        rollingRate,
+        reason: "Weight room only — no conditioning marks",
+      });
+    } else if (condMarks > 0 && wrMarks === 0 && weightroomCols.length > 0) {
+      splitAttendance.push({
+        name,
+        rollingRate,
+        reason: "Conditioning only — no weight room marks",
+      });
+    }
+  }
+
+  const sortByRate = (a, b) => a.rollingRate - b.rollingRate || a.name.localeCompare(b.name);
+
+  return {
+    nearIronman: nearIronman.sort(sortByRate).slice(0, AT_RISK_MAX),
+    heavyMisses: heavyMisses.sort(sortByRate).slice(0, AT_RISK_MAX),
+    splitAttendance: splitAttendance.sort(sortByRate).slice(0, AT_RISK_MAX),
+  };
+}
+
+/** Human-readable attendance column status for hub/check-in banners. */
+export function describeTodaySessionStatus(headerRow) {
+  const todayLabel = getTodayLabel();
+  const dateCol = findTodayDateColumnIndex(headerRow);
+  const wrCol = findSessionColumnIndex(headerRow, "weightroom");
+  const condCol = findSessionColumnIndex(headerRow, "conditioning");
+
+  if (wrCol == null) {
+    return {
+      level: "warn",
+      message: getSessionNotScheduledMessage("weightroom", todayLabel, headerRow),
+    };
+  }
+  if (condCol == null) {
+    return {
+      level: "info",
+      message: `Weight room column ready for ${todayLabel}. Conditioning column (C) not set up yet.`,
+    };
+  }
+  return {
+    level: "ok",
+    message: `Weight room and conditioning columns ready for ${todayLabel}.`,
+  };
+}

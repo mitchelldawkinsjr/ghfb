@@ -1,11 +1,14 @@
-import { parseCSV, readCsvCache, fetchCsvRows } from "/shared/ghfb-csv.js";
+import { parseCSV, readCsvCache, fetchCsvRows, clearCsvCache } from "/shared/ghfb-csv.js";
 import {
   getDataRows,
   getPlayerDisplayName,
   getTodayLabel,
   findSessionColumnIndex,
   getSessionNotScheduledMessage,
+  describeTodaySessionStatus,
 } from "/shared/ghfb-attendance.js";
+import { fetchLiftPlanRows, getTodayLiftPlan } from "/shared/ghfb-lift-plan.js";
+import { escapeHtml } from "/shared/ghfb-dom.js";
 
 const CHECKIN_API = window.GHFB_CHECKIN_API || "/api/checkin";
 const PIN_STORAGE_KEY = "ghfb-coach-pin";
@@ -14,6 +17,7 @@ const saveQueue = [];
 let saveQueueRunning = false;
 let syncing = false;
 let viewOnly = false;
+let dashboardRefreshHint = false;
 const buttonByRow = new Map();
 const rowUiState = new Map();
 
@@ -26,6 +30,7 @@ const gridEl = document.getElementById("grid");
 const searchEl = document.getElementById("search");
 const pinEl = document.getElementById("pin");
 const setupBanner = document.getElementById("setupBanner");
+const todayBanner = document.getElementById("todayBanner");
 
 const savedPin = sessionStorage.getItem(PIN_STORAGE_KEY);
 if (savedPin) pinEl.value = savedPin;
@@ -52,6 +57,61 @@ function setStatus(msg, isError) {
   statusEl.classList.toggle("error", !!isError);
 }
 
+function refreshStatusLine(isError = false, errorMsg = "") {
+  if (isError) {
+    setStatus(errorMsg, true);
+    return;
+  }
+  statusEl.classList.remove("error");
+  if (dashboardRefreshHint && !viewOnly) {
+    statusEl.innerHTML =
+      `${escapeHtml(statusLine())} · ` +
+      `<a href="/attendance-dashboard.html?refresh=1">View updated dashboard</a>`;
+  } else {
+    statusEl.textContent = statusLine();
+  }
+}
+
+function renderTodayBanner(headerRow, liftPlan, liftError) {
+  if (!todayBanner) return;
+
+  const parts = [];
+  if (liftError) {
+    parts.push(`Lift plan unavailable (${liftError}).`);
+  } else if (!liftPlan) {
+    parts.push("No lift row for today in Daily Lift Plan tab.");
+  } else if (liftPlan.off) {
+    parts.push(escapeHtml(liftPlan.label));
+    if (liftPlan.notes) parts.push(escapeHtml(liftPlan.notes));
+  } else {
+    const liftText = liftPlan.url
+      ? `<a href="${escapeHtml(liftPlan.url)}">${escapeHtml(liftPlan.label)}</a>`
+      : escapeHtml(liftPlan.label);
+    parts.push(`Today's lift: ${liftText}`);
+    if (liftPlan.notes) parts.push(escapeHtml(liftPlan.notes));
+  }
+
+  if (headerRow) {
+    const sessionStatus = describeTodaySessionStatus(headerRow);
+    parts.push(escapeHtml(sessionStatus.message));
+    todayBanner.className = "banner " + (sessionStatus.level === "ok" ? "ok" : sessionStatus.level === "warn" ? "warn" : "info");
+  } else {
+    todayBanner.className = "banner info";
+  }
+
+  todayBanner.innerHTML = parts.join(" · ");
+  todayBanner.hidden = false;
+}
+
+async function loadTodayBanner(headerRow) {
+  try {
+    const liftRows = await fetchLiftPlanRows();
+    renderTodayBanner(headerRow, getTodayLiftPlan(liftRows), null);
+  } catch {
+    renderTodayBanner(headerRow, null, "publish Daily Lift Plan CSV");
+  }
+}
+
 function buildFromCsv(rows, type) {
   const headerRow = rows[0] || [];
   const dataRows = getDataRows(rows);
@@ -63,6 +123,7 @@ function buildFromCsv(rows, type) {
       ok: false,
       error: getSessionNotScheduledMessage(type, todayLabel, headerRow),
       todayLabel,
+      headerRow,
     };
   }
 
@@ -80,6 +141,7 @@ function buildFromCsv(rows, type) {
   return {
     ok: true,
     todayLabel,
+    headerRow,
     players: roster,
     checkedCount: roster.filter((p) => p.checked).length,
     total: roster.length,
@@ -109,7 +171,7 @@ function mergeLiveMarks(apiData) {
   }
   syncing = false;
   refreshAllButtons();
-  setStatus(statusLine(), false);
+  refreshStatusLine();
   persistCheckInCache();
 }
 
@@ -232,7 +294,7 @@ function applyData(data) {
   todayLabel = data.todayLabel || getTodayLabel();
   if (data.syncing != null) syncing = !!data.syncing;
   if (data.viewOnly != null) viewOnly = !!data.viewOnly;
-  setStatus(statusLine(), false);
+  refreshStatusLine();
   setupBanner.hidden = !viewOnly;
   render();
 }
@@ -261,7 +323,7 @@ function enqueueSave(sheetRow) {
   saveQueue.push({ sheetRow });
   rowUiState.set(sheetRow, "queued");
   refreshRow(sheetRow);
-  setStatus(statusLine(), false);
+  refreshStatusLine();
   drainSaveQueue();
 }
 
@@ -304,13 +366,15 @@ async function drainSaveQueue() {
 
       rowUiState.set(job.sheetRow, "saving");
       refreshRow(job.sheetRow);
-      setStatus(statusLine(), false);
+      refreshStatusLine();
 
       try {
         await syncRowToServer(job.sheetRow);
         rowUiState.set(job.sheetRow, "idle");
         refreshRow(job.sheetRow);
         persistCheckInCache();
+        clearCsvCache();
+        dashboardRefreshHint = true;
       } catch (err) {
         pl.checked = pl.serverChecked;
         rowUiState.set(job.sheetRow, "idle");
@@ -321,7 +385,7 @@ async function drainSaveQueue() {
     }
   } finally {
     saveQueueRunning = false;
-    setStatus(statusLine(), false);
+    refreshStatusLine();
     if (saveQueue.length > 0) drainSaveQueue();
   }
 }
@@ -333,13 +397,14 @@ function toggle(sheetRow) {
 
   pl.checked = !pl.checked;
   refreshRow(sheetRow);
-  setStatus(statusLine(), false);
+  refreshStatusLine();
   enqueueSave(sheetRow);
 }
 
 async function load() {
-  setStatus("Loading roster…");
+  setStatus("Loading roster…", false);
   gridEl.innerHTML = "";
+  dashboardRefreshHint = false;
 
   const cachedApi = readCheckInCache(sessionType);
   if (cachedApi?.ok) {
@@ -348,8 +413,10 @@ async function load() {
 
   const cachedCsvText = readCsvCache();
   if (cachedCsvText && !cachedApi?.ok) {
-    const shell = buildFromCsv(parseCSV(cachedCsvText), sessionType);
+    const cachedRows = parseCSV(cachedCsvText);
+    const shell = buildFromCsv(cachedRows, sessionType);
     if (shell.ok) applyData(shell);
+    loadTodayBanner(cachedRows[0] || []);
   }
 
   syncing = true;
@@ -358,6 +425,9 @@ async function load() {
       fetchCsvRows(),
       apiGet("getCheckInData", { sessionType, pin: getPin() }),
     ]);
+
+    const headerRow = rows?.[0] || [];
+    loadTodayBanner(headerRow);
 
     if (!players.length && rows) {
       const shell = buildFromCsv(rows, sessionType);
@@ -387,10 +457,12 @@ async function load() {
     }
 
     syncing = false;
-    setStatus(apiData.error, true);
     if (!players.length && rows) {
       const shell = buildFromCsv(rows, sessionType);
       if (shell.ok) applyData({ ...shell, viewOnly: true });
+      else setStatus(shell.error || apiData.error, true);
+    } else {
+      setStatus(apiData.error, true);
     }
   } catch (err) {
     const msg = err.message || String(err);
@@ -405,6 +477,7 @@ async function load() {
       try {
         const rows = await fetchCsvRows();
         const shell = buildFromCsv(rows, sessionType);
+        loadTodayBanner(rows[0] || []);
         if (shell.ok) {
           applyData({ ...shell, viewOnly: true });
           return;

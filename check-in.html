@@ -47,6 +47,22 @@
       border-color: rgba(244, 164, 164, 0.5);
       color: var(--danger);
     }
+    .banner.ok {
+      border-color: rgba(93, 211, 158, 0.45);
+      color: var(--good);
+    }
+    .banner.info {
+      border-color: rgba(143, 147, 167, 0.45);
+      color: var(--muted);
+    }
+    .banner a {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .status a {
+      color: var(--accent);
+      font-weight: 600;
+    }
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -164,6 +180,8 @@
     <a class="back-link" href="/">← Back to Team Tools</a>
     <h1>Coach check-in</h1>
     <p class="subtitle ghfb-subtitle">Tap a name to mark <strong>X</strong> for today’s session. Changes save to the attendance sheet.</p>
+
+    <div id="todayBanner" class="banner info" hidden></div>
 
     <div id="setupBanner" class="banner warn" hidden>
       Saving is not connected. Redeploy ghfb and ensure Apps Script has your

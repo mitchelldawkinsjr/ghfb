@@ -1,6 +1,6 @@
 # Flow: Hub and PWA
 
-The team tools landing page (`index.html`) is a static hub with no backend calls. It can be installed as a progressive web app.
+The team tools landing page (`index.html`) loads a **Today** strip via `js/hub-today.js` (attendance setup, lift plan, momentum, ironmen) and can be installed as a progressive web app.
 
 ## Sequence
 
@@ -11,7 +11,7 @@ sequenceDiagram
   participant Hub as index.html
 
   U->>Hub: GET /
-  Hub->>U: Register SW, show tool cards
+  Hub->>U: Register SW, show today strip + tool cards
   Note over SW: Precache /, manifest, icons<br/>HTML: network-first<br/>Assets: stale-while-revalidate<br/>/lift/ and /film/ passthrough
   U->>Hub: Install PWA / Add to Home Screen
 ```
@@ -26,7 +26,7 @@ sequenceDiagram
 | **Passthrough** | Cross-origin (Google, fonts); `/lift/` and `/film/` proxied apps |
 | **Not intercepted** | `/lift/*`, `/film/*` — sibling apps handle their own caching |
 
-Cache name: `ghfb-hub-v8` (bump when precache list changes).
+Cache name: `ghfb-hub-v9` (bump when precache list changes).
 
 ## In-app proxied apps
 
