@@ -12,7 +12,7 @@ sequenceDiagram
 
   U->>Hub: GET /
   Hub->>U: Register SW, show tool cards
-  Note over SW: Precache /, manifest, icons<br/>HTML: network-first<br/>Assets: stale-while-revalidate
+  Note over SW: Precache /, manifest, icons<br/>HTML: network-first<br/>Assets: stale-while-revalidate<br/>/lift/ and /film/ passthrough
   U->>Hub: Install PWA / Add to Home Screen
 ```
 
@@ -23,14 +23,21 @@ sequenceDiagram
 | **Precache on install** | `/`, `/index.html`, manifest, icons |
 | **Network-first** | HTML / navigation (fresh hub when online) |
 | **Stale-while-revalidate** | Same-origin static assets |
-| **Passthrough** | Cross-origin (Google, fonts, external apps) |
+| **Passthrough** | Cross-origin (Google, fonts); `/lift/` and `/film/` proxied apps |
+| **Not intercepted** | `/lift/*`, `/film/*` — sibling apps handle their own caching |
 
-Cache name: `ghfb-hub-v6` (bump when precache list changes).
+Cache name: `ghfb-hub-v8` (bump when precache list changes).
+
+## In-app proxied apps
+
+GH Lift and Film Review open at `/lift/` and `/film/` on the same origin so the installed PWA does not jump to Safari/Chrome. nginx reverse-proxies to sibling Docker containers; the hub service worker does not cache those paths.
+
+Google Form and Team Drive still open externally (`target="_blank"`).
 
 ## Hub page logic
 
-- Renders seven tool cards (film, lift, check-in, form, dashboard, schedule, drive).
-- Footer season label from visitor local date: Winter (Dec–Feb), Spring (Mar–May), Summer (Jun–Aug), Fall (Sep–Nov).
+- Renders tool cards; Lift and Film use in-app paths.
+- Footer season label from visitor local date.
 - Optional install banner when `beforeinstallprompt` fires and app is not already standalone.
 
 ## Related docs

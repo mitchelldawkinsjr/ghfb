@@ -14,6 +14,8 @@
 | `/sw.js` | Service worker | Offline hub shell | Precache hub assets |
 | `/icons/*` | PWA icons | Install / favicon | — |
 | `/check-in-config.js` | Optional override | `GHFB_CHECKIN_SCRIPT_URL` (legacy; proxy is primary) | — |
+| `/lift/` | nginx proxy → `gh-lift` | GH Lift training app | Sibling container |
+| `/film/` | nginx proxy → `flim-review-app` | Film review static site | Sibling container |
 
 **SPA fallback:** `location /` uses `try_files $uri $uri/ /index.html` (only affects unknown paths).
 
@@ -36,15 +38,17 @@ ghfb.360web.cloud/
 ├── api/
 │   ├── attendance.csv     → Google publish (cached)
 │   └── checkin            → Apps Script (no cache)
-└── [external] Film, Lift, Form, Drive
+├── lift/                  → GH Lift (in-app proxy)
+├── film/                  → Film Review (in-app proxy)
+└── [external] Form, Drive
 ```
 
 ## Hub outbound links (`index.html`)
 
 | Card | Destination |
 |------|-------------|
-| Film Review Hub | https://mitchelldawkinsjr.github.io/GH-Flim-Review/ |
-| GH Lift | https://ghlift.360web.cloud/ |
+| Film Review Hub | `/film/` (in-app) |
+| GH Lift | `/lift/` (in-app) |
 | Coach Check-in | `/check-in.html` (on-site) |
 | Summer Attendance Form | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) |
 | Attendance Dashboard | `/attendance-dashboard.html` |

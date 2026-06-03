@@ -1,4 +1,4 @@
-const CACHE = "ghfb-hub-v7";
+const CACHE = "ghfb-hub-v8";
 
 const PRECACHE = [
   "/",
@@ -45,6 +45,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   // Let the browser handle Google Sheets, CDN, and all other cross-origin requests.
   if (url.origin !== self.location.origin) return;
+
+  // Proxied in-app apps — do not cache or intercept via hub service worker.
+  if (url.pathname.startsWith("/lift/") || url.pathname.startsWith("/film/")) return;
 
   if (isHtmlRequest(request, url)) {
     event.respondWith(networkFirst(request));

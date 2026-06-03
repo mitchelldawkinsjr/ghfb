@@ -25,24 +25,27 @@ flowchart TB
     GAS["Apps Script Web App<br/>doGet / doPost"]
   end
 
-  subgraph external["External apps (hub links)"]
-    Film["GH Film Review"]
-    Lift["GH Lift"]
+  subgraph external["External (browser only)"]
     Form["Summer Attendance Form"]
     Drive["Team Drive"]
+  end
+
+  subgraph sibling["Sibling containers on shared network"]
+    LiftNGX["gh-lift nginx"]
+    FilmNGX["flim-review-app nginx"]
   end
 
   Fan --> NPM
   Coach --> NPM
   NPM --> NGX
+  NGX -->|"/lift/"| LiftNGX
+  NGX -->|"/film/"| FilmNGX
   NGX -->|"/api/attendance.csv" 90s cache| CSVpub
   NGX -->|"/api/checkin" no-store| PY
   PY --> GAS
   GAS --> Sheet
   CSVpub -.->|same data, read-only| Sheet
 
-  Fan --> Film
-  Fan --> Lift
   Fan --> Form
   Fan --> Drive
 ```

@@ -5,31 +5,39 @@
 ```mermaid
 flowchart LR
   dev[Push to main] --> gha[deploy-vps.yml]
-  gha --> rsync[rsync → /opt/360ws/clients/docker-app/ghfb]
-  rsync --> build[docker compose build --no-cache]
-  build --> up[ghfb-app container]
-  up --> npm2[NPM Proxy Host<br/>ghfb.360web.cloud → ghfb-app:80]
+  gha --> rsync[rsync to VPS]
+  rsync --> build[docker compose build]
+  build --> up[app container]
+  up --> proxy[Reverse proxy TLS host]
 ```
 
-| Item | Value |
-|------|-------|
+| Item | Description |
+|------|-------------|
 | Workflow | `.github/workflows/deploy-vps.yml` |
 | Trigger | Push to `main` / `master` (path filters) or `workflow_dispatch` |
-| VPS path | `/opt/360ws/clients/docker-app/ghfb` |
-| Container name | `ghfb-app` |
-| Host port | `8020` → container `80` |
-| Docker network | `360ws-network` |
+| Runtime | nginx static site + Python check-in sidecar |
+| Network | Shared Docker reverse-proxy network with sibling app containers |
 | Secrets | `VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER` |
 
-Health check after deploy: `curl -fsS http://localhost:8020/`.
+Health check after deploy: HTTP GET on the app root via the published host port.
 
 ## Docker image
 
 Built from `Dockerfile`:
 
 - nginx Alpine + Python 3
-- Copies root `*.html`, `js/`, `shared/`, `check-in-config.js`, `manifest.webmanifest`, `sw.js`, `icons/`, `images/`
-- Runs `/opt/start-ghfb.sh` (proxy + nginx)
+- Static hub pages, shared JS modules, PWA assets
+- Reverse proxy routes for `/api/checkin`, `/api/attendance.csv`, `/lift/`, `/film/`
+- Runs `/opt/start-ghfb.sh` (check-in proxy + nginx)
+
+## In-app sibling apps
+
+| Path | Upstream container |
+|------|-------------------|
+| `/lift/` | `gh-lift` (gh-lift repo) |
+| `/film/` | `flim-review-app` (flim-review repo) |
+
+Both must join the same Docker network as the hub container.
 
 ## Apps Script deploy (separate from ghfb)
 
@@ -38,33 +46,23 @@ Built from `Dockerfile`:
 3. Set `SHEET_ID` in `Code.gs`.
 4. Run `testSheetAccess` in the script editor.
 5. **Deploy → New web app** (Execute as: Me, Who has access: Anyone with the link).
-6. Ensure `CHECKIN_SCRIPT_URL` in the container matches the `/exec` URL (default in `checkin_proxy.py`).
 
 ## Local preview
 
 ```bash
 cd ~/Projects/ghfb
-open index.html
-
-# Production-like stack:
 docker compose -f docker-compose.prod.yml up --build
 open http://localhost:8020/
-open http://localhost:8020/attendance-dashboard.html
-open http://localhost:8020/check-in.html
 ```
-
-## NPM (one-time)
-
-Proxy host: `ghfb.360web.cloud` → `http://ghfb-app:80` on `360ws-network`.  
-DNS: A record to VPS.
 
 ## Operational checks
 
-| Check | How |
-|-------|-----|
-| Hub up | `curl -fsS https://ghfb.360web.cloud/` |
-| CSV proxy | `curl -sI https://ghfb.360web.cloud/api/attendance.csv` → look for `X-GHFB-Cache` |
-| Check-in API | `curl -s "https://ghfb.360web.cloud/api/checkin?action=getCheckInData&sessionType=weightroom&pin="` |
-| Sheet column for today | Apps Script `testSheetAccess` logs WR/conditioning column numbers |
+| Check | Expected |
+|-------|----------|
+| Hub | Root URL returns 200 |
+| CSV proxy | `/api/attendance.csv` returns CSV |
+| Check-in API | `/api/checkin?action=getCheckInData&sessionType=weightroom` returns JSON |
+| In-app Lift | `/lift/` returns GH Lift UI |
+| In-app Film | `/film/` returns season selector |
 
 After sheet column changes, coaches may need a new date + `C` headers before check-in succeeds for that day.
