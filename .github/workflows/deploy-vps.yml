@@ -23,138 +23,46 @@ on:
 jobs:
   deploy:
     name: Deploy ghfb to mitch-cloud
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, mitch-cloud, ghfb]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Verify deploy secrets
-        run: |
-          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
-            echo "::error::VPS_SSH_KEY is not set. Add it under Settings → Secrets and variables → Actions."
-            exit 1
-          fi
-          if [ -z "${{ secrets.VPS_HOST }}" ] || [ -z "${{ secrets.VPS_USER }}" ]; then
-            echo "::error::VPS_HOST and VPS_USER must be set in repository secrets."
-            exit 1
-          fi
-          if [ -z "${{ secrets.TAILSCALE_AUTHKEY }}" ]; then
-            echo "::error::TAILSCALE_AUTHKEY is not set. GitHub Actions cannot reach this VPS on public port 22 reliably; deploy over Tailscale instead."
-            echo "::error::Create a reusable, ephemeral, pre-approved auth key tagged tag:ci in the Tailscale admin console, allow tag:ci → SSH to VPS, set VPS_HOST=vps, and add TAILSCALE_AUTHKEY."
-            exit 1
-          fi
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
-
-      - name: Connect Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          tags: tag:ci
-          version: latest
-
-      - name: Add server to known hosts
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          host="${VPS_HOST//[[:space:]]/}"
-          if [ -z "$host" ]; then
-            echo "::error::VPS_HOST is empty (check repository secret for stray spaces/newlines)."
-            exit 1
-          fi
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          touch ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-          if [ -n "$VPS_SSH_KNOWN_HOSTS" ]; then
-            printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
-            echo "Using VPS_SSH_KNOWN_HOSTS secret (skipping ssh-keyscan)."
-            exit 0
-          fi
-
-          for attempt in 1 2 3 4 5; do
-            echo "ssh-keyscan attempt ${attempt}/5 for ${host}..."
-            if ssh-keyscan -T 15 -p 22 -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
-              echo "ssh-keyscan succeeded for ${host} over Tailscale."
-              exit 0
-            fi
-            cat keyscan.err 2>/dev/null || true
-            sleep $((attempt * 5))
-          done
-          echo "::warning::ssh-keyscan could not populate known_hosts; deploy will use StrictHostKeyChecking=accept-new."
-
       - name: Deploy to mitch-cloud
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          host="${VPS_HOST//[[:space:]]/}"
-          user="${VPS_USER//[[:space:]]/}"
-          ssh_opts="-o ConnectTimeout=60 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
+          deploy_dir=/opt/360ws/clients/docker-app/ghfb
 
-          with_retries() {
-            local attempt=1
-            while [ "$attempt" -le 5 ]; do
-              if "$@"; then return 0; fi
-              echo "Command failed (attempt ${attempt}/5), retrying in ${attempt}0s..."
-              sleep $((attempt * 10))
-              attempt=$((attempt + 1))
-            done
-            return 1
-          }
+          mkdir -p "$deploy_dir"
+          docker network ls --format '{{.Name}}' | grep -q '^360ws-network$' || docker network create 360ws-network
 
-          echo "Preflight SSH to ${user}@${host} over Tailscale..."
-          with_retries ssh ${ssh_opts} "${user}@${host}" 'echo tailscale-ssh-ok'
-
-          with_retries ssh ${ssh_opts} "${user}@${host}" << 'EOF'
-            set -e
-            mkdir -p /opt/360ws/clients/docker-app/ghfb
-            docker network ls --format '{{.Name}}' | grep -q '^360ws-network$' || docker network create 360ws-network
-          EOF
-
-          with_retries rsync -avz --delete -e "ssh ${ssh_opts}" \
+          rsync -av --delete \
             --exclude '.git' \
             --exclude '.env' \
-            ./ "${user}@${host}:/opt/360ws/clients/docker-app/ghfb/"
+            ./ "$deploy_dir/"
 
-          with_retries ssh ${ssh_opts} "${user}@${host}" << 'EOF'
-            set -e
-            cd /opt/360ws/clients/docker-app/ghfb
+          cd "$deploy_dir"
+          docker compose -f docker-compose.prod.yml build --no-cache
+          docker compose -f docker-compose.prod.yml down || true
+          docker compose -f docker-compose.prod.yml up -d
 
-            docker compose -f docker-compose.prod.yml build --no-cache
-            docker compose -f docker-compose.prod.yml down || true
-            docker compose -f docker-compose.prod.yml up -d
+          echo "Waiting for ghfb-app to be ready..."
+          sleep 5
 
-            echo "Waiting for ghfb-app to be ready..."
-            sleep 5
-
-            echo "Performing health check..."
-            max_attempts=30
-            attempt=0
-            while [ $attempt -lt $max_attempts ]; do
-              if curl -fsS http://localhost:8020/ -o /dev/null; then
-                echo "Health check passed!"
-                break
-              fi
-              attempt=$((attempt + 1))
-              echo "Health check attempt $attempt/$max_attempts failed, retrying..."
-              sleep 2
-            done
-
-            if [ $attempt -eq $max_attempts ]; then
-              echo "Health check failed after $max_attempts attempts."
-              docker compose -f docker-compose.prod.yml logs app
-              exit 1
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -fsS http://localhost:8020/ -o /dev/null; then
+              echo "Health check passed!"
+              exit 0
             fi
+            attempt=$((attempt + 1))
+            echo "Health check attempt $attempt/$max_attempts failed, retrying..."
+            sleep 2
+          done
 
-            echo "Deployment successful!"
-          EOF
+          echo "Health check failed after $max_attempts attempts."
+          docker compose -f docker-compose.prod.yml logs app
+          exit 1
