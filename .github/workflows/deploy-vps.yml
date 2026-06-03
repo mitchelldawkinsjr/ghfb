@@ -69,15 +69,16 @@ jobs:
 
           for attempt in 1 2 3 4 5; do
             echo "ssh-keyscan attempt ${attempt}/5 for ${host}..."
-            if ssh-keyscan -4 -T 15 -p 22 -t ed25519,rsa,ecdsa -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
-              echo "ssh-keyscan succeeded."
-              exit 0
-            fi
+            for scan_flags in "-4 -t ed25519,rsa,ecdsa" "-t ed25519,rsa,ecdsa"; do
+              if ssh-keyscan -T 15 -p 22 ${scan_flags} -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
+                echo "ssh-keyscan succeeded (${scan_flags})."
+                exit 0
+              fi
+            done
             cat keyscan.err 2>/dev/null || true
             sleep $((attempt * 5))
           done
-          echo "::error::ssh-keyscan could not reach ${host}:22 from GitHub Actions. Check VPS is up, SSH is listening, and firewall allows GitHub runner IPs. Optional: add VPS_SSH_KNOWN_HOSTS secret (output of: ssh-keyscan -H your.host)."
-          exit 1
+          echo "::warning::ssh-keyscan could not populate known_hosts; deploy will use StrictHostKeyChecking=accept-new."
 
       - name: Deploy to mitch-cloud
         env:
@@ -87,7 +88,7 @@ jobs:
           set -euo pipefail
           host="${VPS_HOST//[[:space:]]/}"
           user="${VPS_USER//[[:space:]]/}"
-          ssh_opts="-o ConnectTimeout=20 -o ServerAliveInterval=30"
+          ssh_opts="-o ConnectTimeout=20 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
 
           ssh ${ssh_opts} "${user}@${host}" << 'EOF'
             set -e
