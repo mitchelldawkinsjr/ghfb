@@ -76,6 +76,49 @@
       height: auto;
       border-radius: 8px;
     }
+    .section-title {
+      font-size: 1.0625rem;
+      font-weight: 600;
+      margin: 28px 0 10px;
+      letter-spacing: -0.01em;
+    }
+    .section-title:first-of-type {
+      margin-top: 0;
+    }
+    .doc-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .doc-actions a {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .doc-actions a:hover { text-decoration: underline; }
+    .doc-panel[hidden] { display: none; }
+    .doc-hint {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .doc-frame {
+      position: relative;
+      width: 100%;
+      min-height: min(72vh, 720px);
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .doc-frame iframe {
+      display: block;
+      width: 100%;
+      height: min(72vh, 720px);
+      border: 0;
+    }
     .lightbox[hidden] {
       display: none;
     }
@@ -157,8 +200,43 @@
       <a class="back" href="/">← Team Tools</a>
     </div>
     <h1>2026 Godwin Football Schedule</h1>
-    <p class="subtitle">All games at 7:00 PM unless noted on the graphic.</p>
+    <p class="subtitle">Team schedule document and varsity game graphic. All games at 7:00 PM unless noted.</p>
 
+    <h2 class="section-title">Team schedule</h2>
+    <div class="doc-actions">
+      <a
+        id="scheduleGoogleOpen"
+        href="https://docs.google.com/document/d/1W-uFWhJuSTu5JiscKi3rqzrSpbVgvVlh/view"
+        target="_blank"
+        rel="noopener noreferrer"
+      >Open in Google Docs</a>
+    </div>
+    <p class="doc-hint" id="scheduleDocHint">Loading team schedule…</p>
+    <div class="frame">
+      <div id="scheduleGooglePanel" class="doc-panel" hidden>
+        <div class="doc-frame">
+          <iframe
+            id="scheduleGoogleFrame"
+            title="Godwin Heights Football team schedule (Google Docs)"
+            src="https://docs.google.com/document/d/1W-uFWhJuSTu5JiscKi3rqzrSpbVgvVlh/preview"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+        </div>
+      </div>
+      <div id="scheduleFallbackPanel" class="doc-panel" hidden>
+        <div class="doc-frame">
+          <iframe
+            id="scheduleFallbackFrame"
+            title="2026 Summer Schedule (saved copy)"
+            src="/files/summer-schedule-2026/"
+            loading="lazy"
+          ></iframe>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Varsity game dates</h2>
     <div class="frame">
       <button type="button" id="scheduleOpen" aria-haspopup="dialog" aria-controls="scheduleLightbox">
         <img
@@ -243,6 +321,30 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && lightbox && !lightbox.hidden) closeLightbox();
     });
+
+    async function resolveTeamScheduleView() {
+      const googlePanel = document.getElementById("scheduleGooglePanel");
+      const fallbackPanel = document.getElementById("scheduleFallbackPanel");
+      const hint = document.getElementById("scheduleDocHint");
+      let embeddable = false;
+      try {
+        const res = await fetch("/api/schedule-doc-status");
+        if (res.ok) embeddable = !!(await res.json()).embeddable;
+      } catch {
+        embeddable = false;
+      }
+      if (embeddable) {
+        googlePanel.hidden = false;
+        fallbackPanel.hidden = true;
+        hint.textContent = "Live schedule from Google Docs.";
+      } else {
+        googlePanel.hidden = true;
+        fallbackPanel.hidden = false;
+        hint.textContent =
+          "Showing saved copy from 2026 Summer Schedule. Share the Google Doc as Anyone with the link can view to use the live version.";
+      }
+    }
+    resolveTeamScheduleView();
   </script>
 </body>
 </html>

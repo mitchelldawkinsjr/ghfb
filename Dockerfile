@@ -14,5 +14,6 @@ COPY check-in-config.js /usr/share/nginx/html/
 COPY manifest.webmanifest sw.js /usr/share/nginx/html/
 COPY icons /usr/share/nginx/html/icons/
 COPY images /usr/share/nginx/html/images/
+COPY files /usr/share/nginx/html/files/
 EXPOSE 80
 CMD ["/opt/start-ghfb.sh"]
