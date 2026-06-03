@@ -39,6 +39,13 @@ export function getToday() {
   return today;
 }
 
+/** Calendar day before today (local), midnight. */
+export function getYesterday() {
+  const yesterday = getToday();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return yesterday;
+}
+
 /** M/D label for today's session column (matches sheet headers). */
 export function getTodayLabel() {
   const d = getToday();
@@ -62,11 +69,14 @@ export function formatHeaderLabel(header) {
 }
 
 /**
- * Session columns available through today:
- * each weightroom date on/before today + paired C when listed next.
+ * Session columns available through a cutoff date (default: today):
+ * each weightroom date on/before cutoff + paired C when listed next.
  */
-export function getValidAttendanceIndexes(headers, attendanceStartIdx = ATTENDANCE_START_IDX) {
-  const today = getToday();
+export function getValidAttendanceIndexes(
+  headers,
+  attendanceStartIdx = ATTENDANCE_START_IDX,
+  throughDate = getToday()
+) {
   const indexes = [];
 
   for (let col = attendanceStartIdx; col < headers.length; col++) {
@@ -76,7 +86,7 @@ export function getValidAttendanceIndexes(headers, attendanceStartIdx = ATTENDAN
     const dateVal = parseHeaderDate(header);
 
     if (dateVal) {
-      if (dateVal > today) break;
+      if (dateVal > throughDate) break;
 
       indexes.push(col);
 
@@ -266,7 +276,8 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
   const headerRow = rows[0] || [];
   const dataRows = getDataRows(rows);
   const validIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx);
-  const lastSevenIndexes = validIndexes.slice(-7);
+  const momentumIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx, getYesterday());
+  const lastSevenIndexes = momentumIndexes.slice(-7);
   const sheetMeta = getSheetMeta(headerRow, dataRows);
   const ironMenThresholdRate = sheetMeta.ironMenThresholdRate;
   const todayLabel = getTodayLabel();

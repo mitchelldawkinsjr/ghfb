@@ -208,11 +208,11 @@ function applySummaryToDom(summary) {
       : totalPossible > 0
         ? `No players at ${formatPct(ironMenThresholdRate)} yet (${totalPossible} sessions counted)`
         : "No sessions counted yet as of today",
-    momentumPct: totalPossible > 0 ? formatPct(momentumRate) : "—",
+    momentumPct: momentumPossible > 0 ? formatPct(momentumRate) : "—",
     momentumMeta:
       lastSevenIndexes.length > 0
-        ? `${lastSevenIndexes.length} sessions · ${momentumMarks}/${momentumPossible} marks`
-        : "No sessions in range yet",
+        ? `${lastSevenIndexes.length} sessions · ${momentumMarks}/${momentumPossible} marks · through yesterday`
+        : "No completed sessions yet for momentum",
   });
 
   return { playerTotals, dataRows, validIndexes };

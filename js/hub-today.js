@@ -63,7 +63,7 @@ function renderAttendanceRow(headerRow) {
 }
 
 function renderStatsRow(summary) {
-  const momentum = summary.totalPossible > 0 ? formatPct(summary.momentumRate) : "—";
+  const momentum = summary.momentumPossible > 0 ? formatPct(summary.momentumRate) : "—";
   const ironCount = summary.ironMen.length;
   return renderRow(
     "Team",
