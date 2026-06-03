@@ -5,6 +5,8 @@ on:
     branches: [main, master]
     paths:
       - "*.html"
+      - "js/**"
+      - "shared/**"
       - "check-in-config.js"
       - "manifest.webmanifest"
       - "sw.js"
@@ -13,7 +15,6 @@ on:
       - "data/**"
       - "files/**"
       - "deploy/**"
-      - "check-in-config.js"
       - "Dockerfile"
       - "docker-compose.prod.yml"
       - ".github/workflows/deploy-vps.yml"
@@ -39,11 +40,23 @@ jobs:
             echo "::error::VPS_HOST and VPS_USER must be set in repository secrets."
             exit 1
           fi
+          if [ -z "${{ secrets.TAILSCALE_AUTHKEY }}" ]; then
+            echo "::error::TAILSCALE_AUTHKEY is not set. GitHub Actions cannot reach this VPS on public port 22 reliably; deploy over Tailscale instead."
+            echo "::error::Create a reusable, ephemeral, pre-approved auth key tagged tag:ci in the Tailscale admin console, allow tag:ci → SSH to VPS, set VPS_HOST=vps, and add TAILSCALE_AUTHKEY."
+            exit 1
+          fi
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          tags: tag:ci
+          version: latest
 
       - name: Add server to known hosts
         env:
@@ -69,12 +82,10 @@ jobs:
 
           for attempt in 1 2 3 4 5; do
             echo "ssh-keyscan attempt ${attempt}/5 for ${host}..."
-            for scan_flags in "-4 -t ed25519,rsa,ecdsa" "-t ed25519,rsa,ecdsa"; do
-              if ssh-keyscan -T 15 -p 22 ${scan_flags} -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
-                echo "ssh-keyscan succeeded (${scan_flags})."
-                exit 0
-              fi
-            done
+            if ssh-keyscan -T 15 -p 22 -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
+              echo "ssh-keyscan succeeded for ${host} over Tailscale."
+              exit 0
+            fi
             cat keyscan.err 2>/dev/null || true
             sleep $((attempt * 5))
           done
@@ -88,7 +99,7 @@ jobs:
           set -euo pipefail
           host="${VPS_HOST//[[:space:]]/}"
           user="${VPS_USER//[[:space:]]/}"
-          ssh_opts="-4 -o ConnectTimeout=60 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
+          ssh_opts="-o ConnectTimeout=60 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
 
           with_retries() {
             local attempt=1
@@ -100,6 +111,9 @@ jobs:
             done
             return 1
           }
+
+          echo "Preflight SSH to ${user}@${host} over Tailscale..."
+          with_retries ssh ${ssh_opts} "${user}@${host}" 'echo tailscale-ssh-ok'
 
           with_retries ssh ${ssh_opts} "${user}@${host}" << 'EOF'
             set -e
