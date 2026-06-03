@@ -24,6 +24,51 @@ function findColumnIndex(headers, names) {
   return -1;
 }
 
+/**
+ * Read conditioning columns from the same Daily Lift Plan CSV.
+ * Expected extra columns: CondLabel, CondPhase, CondSession, CondLink.
+ */
+export function getTodayConditioningPlan(rows) {
+  if (!rows?.length || rows.length < 2) return null;
+
+  const headers = normalizeHeaders(rows[0]);
+  const dateCol = findColumnIndex(headers, ["date"]);
+  if (dateCol < 0) return null;
+
+  const labelCol = findColumnIndex(headers, ["condlabel", "cond label"]);
+  const phaseCol = findColumnIndex(headers, ["condphase", "cond phase"]);
+  const sessionCol = findColumnIndex(headers, ["condsession", "cond session"]);
+  const linkCol = findColumnIndex(headers, ["condlink", "cond link"]);
+
+  if (labelCol < 0 && phaseCol < 0 && sessionCol < 0) return null;
+
+  const today = getToday();
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const dateVal = parseHeaderDate(row[dateCol]);
+    if (!dateVal || dateVal.getTime() !== today.getTime()) continue;
+
+    const label = labelCol >= 0 ? String(row[labelCol] ?? "").trim() : "";
+    const phase = phaseCol >= 0 ? String(row[phaseCol] ?? "").trim() : "";
+    const session = sessionCol >= 0 ? String(row[sessionCol] ?? "").trim() : "";
+    const customUrl = linkCol >= 0 ? String(row[linkCol] ?? "").trim() : "";
+
+    if (!label && !phase && !session) return null;
+
+    const displayLabel = label || (phase && session ? `${phase} · ${session}` : "");
+    return {
+      label: displayLabel || "Conditioning scheduled",
+      phase,
+      session,
+      url: customUrl || buildLiftUrl(phase, session),
+      off: false,
+    };
+  }
+
+  return null;
+}
+
 export function getTodayLiftPlan(rows) {
   if (!rows?.length || rows.length < 2) return null;
 

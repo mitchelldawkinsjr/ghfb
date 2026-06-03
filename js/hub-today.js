@@ -3,7 +3,7 @@ import {
   buildAttendanceSummary,
   describeTodaySessionStatus,
 } from "/shared/ghfb-attendance.js";
-import { fetchLiftPlanRows, getTodayLiftPlan } from "/shared/ghfb-lift-plan.js";
+import { fetchLiftPlanRows, getTodayLiftPlan, getTodayConditioningPlan } from "/shared/ghfb-lift-plan.js";
 import { formatPct, escapeHtml } from "/shared/ghfb-dom.js";
 
 const panel = document.getElementById("todayPanel");
@@ -46,6 +46,14 @@ function renderLiftRow(plan, liftError) {
   return renderRow("Lift", link, plan.notes || "");
 }
 
+function renderConditioningRow(plan) {
+  if (!plan) return "";
+  const link = plan.url
+    ? `<a href="${escapeHtml(plan.url)}">${escapeHtml(plan.label)}</a>`
+    : escapeHtml(plan.label);
+  return renderRow("Conditioning", link);
+}
+
 function renderAttendanceRow(headerRow) {
   const status = describeTodaySessionStatus(headerRow);
   return renderRow(
@@ -63,12 +71,14 @@ function renderStatsRow(summary) {
   );
 }
 
-function renderActions(liftPlan) {
+function renderActions(liftPlan, condPlan) {
   const liftHref = liftPlan?.url && !liftPlan.off ? liftPlan.url : "/lift/";
+  const condHref = condPlan?.url ? condPlan.url : null;
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
     `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
-    `<a class="today-btn" href="${escapeHtml(liftHref)}">Open lift</a>`;
+    `<a class="today-btn" href="${escapeHtml(liftHref)}">Open lift</a>` +
+    (condHref ? `<a class="today-btn" href="${escapeHtml(condHref)}">Open conditioning</a>` : "");
 }
 
 function renderError(message) {
@@ -92,17 +102,22 @@ async function loadTodayPanel() {
     const [attRows, liftResult] = await Promise.all([
       fetchCsvRows(),
       fetchLiftPlanRows().then(
-        (rows) => ({ plan: getTodayLiftPlan(rows), error: null }),
-        (err) => ({ plan: null, error: "Add Daily Lift Plan tab and publish CSV (see docs)" })
+        (rows) => ({
+          plan: getTodayLiftPlan(rows),
+          condPlan: getTodayConditioningPlan(rows),
+          error: null,
+        }),
+        (err) => ({ plan: null, condPlan: null, error: "Add Daily Lift Plan tab and publish CSV (see docs)" })
       ),
     ]);
 
     const summary = buildAttendanceSummary(attRows);
     rowsEl.innerHTML =
       renderLiftRow(liftResult.plan, liftResult.error) +
+      renderConditioningRow(liftResult.condPlan) +
       renderAttendanceRow(summary.headerRow) +
       renderStatsRow(summary);
-    renderActions(liftResult.plan);
+    renderActions(liftResult.plan, liftResult.condPlan);
     panel?.classList.remove("is-loading");
   } catch (err) {
     console.warn("Today panel load failed:", err);
