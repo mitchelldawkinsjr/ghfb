@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Parse files/summer-schedule-2026/index.html → data/summer-schedule-events.json
+ * Parse files/summer-schedule-2026/index.html + attendance sheet C columns
+ * → data/summer-schedule-events.json
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -9,6 +10,74 @@ import { fileURLToPath } from "node:url";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const htmlPath = path.join(root, "files/summer-schedule-2026/index.html");
 const outPath = path.join(root, "data/summer-schedule-events.json");
+const ATTENDANCE_URL =
+  process.env.ATTENDANCE_CSV_URL || "https://ghfb.360web.cloud/api/attendance.csv";
+
+const SUMMARY_HEADERS = new Set([
+  "Current Total",
+  "Ironman %",
+  "# of sessions this summer",
+  "% required for ironman",
+]);
+const ATTENDANCE_START_IDX = 2;
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
+        value += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      row.push(value.trim());
+      value = "";
+    } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+      if (ch === "\r" && next === "\n") i++;
+      row.push(value.trim());
+      rows.push(row);
+      row = [];
+      value = "";
+    } else {
+      value += ch;
+    }
+  }
+
+  if (value.length || row.length) {
+    row.push(value.trim());
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseHeaderDate(value) {
+  const text = String(value ?? "").trim();
+  let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (match) {
+    let y = Number(match[3]);
+    if (y < 100) y += 2000;
+    const date = new Date(y, Number(match[1]) - 1, Number(match[2]));
+    date.setHours(0, 0, 0, 0);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  match = text.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (match) {
+    const y = new Date().getFullYear();
+    const date = new Date(y, Number(match[1]) - 1, Number(match[2]));
+    date.setHours(0, 0, 0, 0);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+}
 
 const MONTH_NUM = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
 
@@ -171,6 +240,41 @@ function parseMonthSection(monthName, year, tableHtml) {
   return events;
 }
 
+/** Conditioning sessions: date header with C in the next column (attendance sheet rules). */
+function conditioningEventsFromAttendance(headers) {
+  const events = [];
+
+  for (let col = ATTENDANCE_START_IDX; col < headers.length; col++) {
+    const header = String(headers[col] ?? "").trim();
+    if (!header || SUMMARY_HEADERS.has(header)) break;
+
+    const dateVal = parseHeaderDate(header);
+    if (!dateVal) continue;
+
+    const next = String(headers[col + 1] ?? "").trim().toUpperCase();
+    if (next !== "C") continue;
+
+    const date = `${dateVal.getFullYear()}-${pad2(dateVal.getMonth() + 1)}-${pad2(dateVal.getDate())}`;
+    events.push({
+      date,
+      summary: "Conditioning",
+      location: "Godwin Heights Football",
+      start: "16:00",
+      end: "18:00",
+    });
+  }
+
+  return events;
+}
+
+async function loadAttendanceCsv() {
+  const res = await fetch(ATTENDANCE_URL);
+  if (!res.ok) {
+    throw new Error(`Attendance CSV fetch failed: HTTP ${res.status}`);
+  }
+  return res.text();
+}
+
 const html = fs.readFileSync(htmlPath, "utf8");
 const year = 2026;
 const all = [];
@@ -183,6 +287,13 @@ for (let i = 1; i < sections.length; i += 2) {
   if (!tableMatch) continue;
   all.push(...parseMonthSection(monthName, year, tableMatch[1]));
 }
+
+const csvText = await loadAttendanceCsv();
+const attendanceRows = parseCSV(csvText);
+const headerRow = attendanceRows[0] || [];
+const conditioning = conditioningEventsFromAttendance(headerRow);
+console.log(`Attendance sheet: ${conditioning.length} conditioning (C) days`);
+all.push(...conditioning);
 
 const seen = new Set();
 const events = all.filter((e) => {

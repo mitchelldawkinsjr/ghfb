@@ -90,3 +90,16 @@ The hub today strip and coach check-in banner read **today’s lift** from a sep
 4. Redeploy ghfb.
 
 Lift plan CSV is cached by nginx (~90s) and optionally in the browser (~5 min). Attendance and lift plan are independent tabs.
+
+## Summer schedule ICS (`/schedule.html`)
+
+The downloadable `.ics` file merges:
+
+1. Events parsed from the **2026 Summer Schedule** HTML export (`files/summer-schedule-2026/`).
+2. **Conditioning** entries for every attendance-sheet day where a date header is followed by a **`C`** column (same rules as check-in), default **4:00–6:00 PM**.
+
+Regenerate after sheet or HTML changes:
+
+```bash
+node tools/extract-summer-schedule-events.mjs
+```
