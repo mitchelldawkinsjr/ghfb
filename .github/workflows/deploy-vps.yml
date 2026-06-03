@@ -46,28 +46,61 @@ jobs:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
       - name: Add server to known hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
         run: |
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          set -euo pipefail
+          host="${VPS_HOST//[[:space:]]/}"
+          if [ -z "$host" ]; then
+            echo "::error::VPS_HOST is empty (check repository secret for stray spaces/newlines)."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          touch ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          if [ -n "$VPS_SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+            echo "Using VPS_SSH_KNOWN_HOSTS secret (skipping ssh-keyscan)."
+            exit 0
+          fi
+
+          for attempt in 1 2 3 4 5; do
+            echo "ssh-keyscan attempt ${attempt}/5 for ${host}..."
+            if ssh-keyscan -T 15 -p 22 -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
+              echo "ssh-keyscan succeeded."
+              exit 0
+            fi
+            cat keyscan.err 2>/dev/null || true
+            sleep $((attempt * 5))
+          done
+          echo "::error::ssh-keyscan could not reach ${host}:22 from GitHub Actions. Check VPS is up, SSH is listening, and firewall allows GitHub runner IPs. Optional: add VPS_SSH_KNOWN_HOSTS secret (output of: ssh-keyscan -H your.host)."
+          exit 1
 
       - name: Deploy to mitch-cloud
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          set -e
+          set -euo pipefail
+          host="${VPS_HOST//[[:space:]]/}"
+          user="${VPS_USER//[[:space:]]/}"
+          ssh_opts="-o ConnectTimeout=20 -o ServerAliveInterval=30"
 
-          ssh ${VPS_USER}@${VPS_HOST} << 'EOF'
+          ssh ${ssh_opts} "${user}@${host}" << 'EOF'
             set -e
             mkdir -p /opt/360ws/clients/docker-app/ghfb
             docker network ls --format '{{.Name}}' | grep -q '^360ws-network$' || docker network create 360ws-network
           EOF
 
-          rsync -avz --delete \
+          rsync -avz --delete -e "ssh ${ssh_opts}" \
             --exclude '.git' \
             --exclude '.env' \
-            ./ ${VPS_USER}@${VPS_HOST}:/opt/360ws/clients/docker-app/ghfb/
+            ./ "${user}@${host}:/opt/360ws/clients/docker-app/ghfb/"
 
-          ssh ${VPS_USER}@${VPS_HOST} << 'EOF'
+          ssh ${ssh_opts} "${user}@${host}" << 'EOF'
             set -e
             cd /opt/360ws/clients/docker-app/ghfb
 
