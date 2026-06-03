@@ -64,10 +64,12 @@ function renderAttendanceRow(headerRow) {
 
 function renderStatsRow(summary) {
   const momentum = summary.momentumPossible > 0 ? formatPct(summary.momentumRate) : "—";
-  const ironCount = summary.ironMen.length;
+  const ironCount =
+    summary.completedTotalPossible > 0 ? String(summary.ironMen.length) : "—";
   return renderRow(
     "Team",
-    `<span>Momentum ${momentum} · ${ironCount} ironmen</span>`
+    `<span>Momentum ${momentum} · ${ironCount} ironmen</span>`,
+    "Through yesterday"
   );
 }
 
