@@ -88,20 +88,31 @@ jobs:
           set -euo pipefail
           host="${VPS_HOST//[[:space:]]/}"
           user="${VPS_USER//[[:space:]]/}"
-          ssh_opts="-4 -o ConnectTimeout=20 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
+          ssh_opts="-4 -o ConnectTimeout=60 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
 
-          ssh ${ssh_opts} "${user}@${host}" << 'EOF'
+          with_retries() {
+            local attempt=1
+            while [ "$attempt" -le 5 ]; do
+              if "$@"; then return 0; fi
+              echo "Command failed (attempt ${attempt}/5), retrying in ${attempt}0s..."
+              sleep $((attempt * 10))
+              attempt=$((attempt + 1))
+            done
+            return 1
+          }
+
+          with_retries ssh ${ssh_opts} "${user}@${host}" << 'EOF'
             set -e
             mkdir -p /opt/360ws/clients/docker-app/ghfb
             docker network ls --format '{{.Name}}' | grep -q '^360ws-network$' || docker network create 360ws-network
           EOF
 
-          rsync -avz --delete -e "ssh ${ssh_opts}" \
+          with_retries rsync -avz --delete -e "ssh ${ssh_opts}" \
             --exclude '.git' \
             --exclude '.env' \
             ./ "${user}@${host}:/opt/360ws/clients/docker-app/ghfb/"
 
-          ssh ${ssh_opts} "${user}@${host}" << 'EOF'
+          with_retries ssh ${ssh_opts} "${user}@${host}" << 'EOF'
             set -e
             cd /opt/360ws/clients/docker-app/ghfb
 
