@@ -73,12 +73,14 @@ function renderStatsRow(summary) {
 
 function renderActions(liftPlan, condPlan) {
   const liftHref = liftPlan?.url && !liftPlan.off ? liftPlan.url : "/lift/";
-  const condHref = condPlan?.url ? condPlan.url : null;
+  const condHref = condPlan?.url ? condPlan.url : "/lift/";
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
     `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
+    `<div class="today-actions-pair">` +
     `<a class="today-btn" href="${escapeHtml(liftHref)}">Open lift</a>` +
-    (condHref ? `<a class="today-btn" href="${escapeHtml(condHref)}">Open conditioning</a>` : "");
+    `<a class="today-btn" href="${escapeHtml(condHref)}">Open conditioning</a>` +
+    `</div>`;
 }
 
 function renderError(message) {
