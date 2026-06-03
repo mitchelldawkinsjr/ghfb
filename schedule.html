@@ -92,13 +92,24 @@
       align-items: center;
       margin-bottom: 12px;
     }
-    .doc-actions a {
+    .doc-actions a,
+    .doc-actions button {
       font-size: 0.875rem;
       font-weight: 600;
       color: var(--accent);
       text-decoration: none;
+      background: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      font-family: inherit;
     }
-    .doc-actions a:hover { text-decoration: underline; }
+    .doc-actions a:hover,
+    .doc-actions button:hover { text-decoration: underline; }
+    .doc-actions button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
     .doc-panel[hidden] { display: none; }
     .doc-hint {
       font-size: 0.8125rem;
@@ -210,6 +221,7 @@
         target="_blank"
         rel="noopener noreferrer"
       >Open in Google Docs</a>
+      <button type="button" id="downloadSummerIcs">Download summer calendar (.ics)</button>
     </div>
     <p class="doc-hint" id="scheduleDocHint">Loading team schedule…</p>
     <div class="frame">
@@ -346,5 +358,6 @@
     }
     resolveTeamScheduleView();
   </script>
+  <script type="module" src="/js/summer-schedule-ics.js"></script>
 </body>
 </html>

@@ -1,0 +1,447 @@
+{
+  "calendarName": "Godwin Heights Football — Summer 2026",
+  "timezone": "America/Detroit",
+  "events": [
+    {
+      "date": "2026-06-01",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-08",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-09",
+      "summary": "Team Workout 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-06-10",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-11",
+      "summary": "Team Workout 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-06-12",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-15",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-16",
+      "summary": "Team Camp Ottawa4 - 6 PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-06-17",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-18",
+      "summary": "Team Workout 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-06-19",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-20",
+      "summary": "D ZONE 7 V 79:00 AM",
+      "location": "Godwin Heights Football",
+      "start": "79:00",
+      "end": "81:00"
+    },
+    {
+      "date": "2026-06-22",
+      "summary": "3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-23",
+      "summary": "Team Workout 4 - 6 PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-06-24",
+      "summary": "3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-25",
+      "summary": "Team Workout 4 - 6 PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-06-26",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-06-28",
+      "summary": "Dead Week",
+      "location": "Godwin Heights Football",
+      "allDay": true
+    },
+    {
+      "date": "2026-06-29",
+      "summary": "Dead Week",
+      "location": "Godwin Heights Football",
+      "allDay": true
+    },
+    {
+      "date": "2026-06-30",
+      "summary": "Dead Week",
+      "location": "Godwin Heights Football",
+      "allDay": true
+    },
+    {
+      "date": "2026-07-01",
+      "summary": "Dead Week",
+      "location": "Godwin Heights Football",
+      "allDay": true
+    },
+    {
+      "date": "2026-07-02",
+      "summary": "Dead Week",
+      "location": "Godwin Heights Football",
+      "allDay": true
+    },
+    {
+      "date": "2026-07-03",
+      "summary": "Dead Week",
+      "location": "Godwin Heights Football",
+      "allDay": true
+    },
+    {
+      "date": "2026-07-04",
+      "summary": "Dead Week",
+      "location": "Godwin Heights Football",
+      "allDay": true
+    },
+    {
+      "date": "2026-07-06",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-07",
+      "summary": "Team Workout4- 6 PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-07-08",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-09",
+      "summary": "Team Workout4-6 PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-07-10",
+      "summary": "Hope 7 on 7",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-07-13",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-14",
+      "summary": "Team Workout 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-07-15",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-16",
+      "summary": "Team Workout4 - 6 PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-07-17",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-20",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-21",
+      "summary": "Team Camp vs Orchard View",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-07-22",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-23",
+      "summary": "Team Workout 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-07-24",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-27",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-28",
+      "summary": "on 7 @ FHC",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-07-29",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-07-30",
+      "summary": "Team Workout 4-6 PMBBQ!",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-07-31",
+      "summary": "Weight Room 3:45–5:00",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-08-03",
+      "summary": "Weight Room & 4 Man workout",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-08-04",
+      "summary": "Weight Room & 4 Man workout",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-08-05",
+      "summary": "Weight Room & 4 Man workout",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-08-06",
+      "summary": "Weight Room & 4 Man workout",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-08-07",
+      "summary": "Weight Room & 4 Man workout",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-08-08",
+      "summary": "Weight Room & 4 Man workout",
+      "location": "Godwin Heights Football",
+      "start": "15:45",
+      "end": "17:00"
+    },
+    {
+      "date": "2026-08-10",
+      "summary": "Practice 4–7PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-08-11",
+      "summary": "Practice 4–7PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-08-12",
+      "summary": "Practice 4–7PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-08-13",
+      "summary": "Practice 4–7PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-08-14",
+      "summary": "Full Pads! Practice 4–7PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-08-17",
+      "summary": "Practice 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-08-18",
+      "summary": "Practice 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-08-19",
+      "summary": "Practice 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-08-20",
+      "summary": "Scrimmage JV & Varsity@ Okemos",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    },
+    {
+      "date": "2026-08-21",
+      "summary": "Practice 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-08-24",
+      "summary": "Practice 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-08-25",
+      "summary": "Practice 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-08-26",
+      "summary": "JV Game VS Holland Varsity Practice 4–6PM",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "18:00"
+    },
+    {
+      "date": "2026-08-27",
+      "summary": "Varsity Game @ Holland",
+      "location": "Godwin Heights Football",
+      "start": "16:00",
+      "end": "19:00"
+    }
+  ]
+}

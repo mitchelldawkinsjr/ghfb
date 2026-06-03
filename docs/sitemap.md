@@ -7,7 +7,8 @@
 | `/` | `index.html` | Team tools hub (PWA entry) | Attendance CSV + lift plan CSV (today strip) |
 | `/check-in.html` | Coach roll call | **Write** today’s marks | CSV (fast) + `/api/checkin` |
 | `/attendance-dashboard.html` | Analytics dashboard | **Read** rolling stats | `/api/attendance.csv` |
-| `/schedule.html` | Schedule doc + varsity graphic | Static | Google Doc if public, else `files/summer-schedule-2026/` |
+| `/schedule.html` | Schedule doc + varsity graphic | Static | Google Doc if public, else `files/summer-schedule-2026/`; **Download summer calendar (.ics)** |
+| `/data/summer-schedule-events.json` | Summer ICS source | Static | Parsed from summer schedule HTML |
 | `/api/schedule-doc-status` | Schedule embed probe | JSON | Python sidecar checks Google Doc export |
 | `/files/summer-schedule-2026/` | Summer schedule fallback | Static | HTML export from team schedule file |
 | `/api/attendance.csv` | nginx proxy | Cached CSV feed | Google Sheets publish URL |

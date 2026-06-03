@@ -10,6 +10,8 @@ on:
       - "sw.js"
       - "icons/**"
       - "images/**"
+      - "data/**"
+      - "files/**"
       - "deploy/**"
       - "check-in-config.js"
       - "Dockerfile"

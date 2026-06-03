@@ -80,7 +80,7 @@ The hub today strip and coach check-in banner read **today’s lift** from a sep
 
 - One row per calendar day you want to show on the hub.
 - Leave **Phase** and **Session** empty (or set **Label** to `Off`) for non-lift days.
-- ghfb builds the default link as `/lift/#/{phase}/{session}` when Phase and Session are set.
+- ghfb builds the default link as `/lift/#/{phase}/{session}` when Phase and Session are set (e.g. `#/phase-2/lower-a`, `#/phase-1/day-a`). Run `node tools/print-route-slugs.mjs` in the **gh-lift** repo for the full slug list. Phase 5 has two blocks: use `phase-5` or `phase-5-21-22` for wks 21–22, and `phase-5-23-24` for wks 23–24.
 
 ### Publish the lift plan tab
 
