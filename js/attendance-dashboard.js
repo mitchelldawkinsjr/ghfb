@@ -171,13 +171,14 @@ function applySummaryToDom(summary) {
     momentumPossible,
     top,
     totalPossible,
+    completedTotalPossible,
     lastSevenIndexes,
     rosterParticipation,
   } = summary;
 
   const ironLabel = document.getElementById("ironMenLabel");
   if (ironLabel) {
-    ironLabel.textContent = `Ironmen (rolling avg ≥ ${formatPct(ironMenThresholdRate)})`;
+    ironLabel.textContent = `Ironmen (rolling avg ≥ ${formatPct(ironMenThresholdRate)}, through yesterday)`;
   }
 
   const formulaNote = document.getElementById("rollingFormulaNote");
@@ -205,9 +206,9 @@ function applySummaryToDom(summary) {
     ironMen,
     ironMenEmptyMessage: ironMen.length
       ? ""
-      : totalPossible > 0
-        ? `No players at ${formatPct(ironMenThresholdRate)} yet (${totalPossible} sessions counted)`
-        : "No sessions counted yet as of today",
+      : completedTotalPossible > 0
+        ? `No players at ${formatPct(ironMenThresholdRate)} yet (${completedTotalPossible} sessions through yesterday)`
+        : "No completed sessions yet for ironmen",
     momentumPct: momentumPossible > 0 ? formatPct(momentumRate) : "—",
     momentumMeta:
       lastSevenIndexes.length > 0

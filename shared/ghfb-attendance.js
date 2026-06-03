@@ -276,8 +276,8 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
   const headerRow = rows[0] || [];
   const dataRows = getDataRows(rows);
   const validIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx);
-  const momentumIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx, getYesterday());
-  const lastSevenIndexes = momentumIndexes.slice(-7);
+  const completedIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx, getYesterday());
+  const lastSevenIndexes = completedIndexes.slice(-7);
   const sheetMeta = getSheetMeta(headerRow, dataRows);
   const ironMenThresholdRate = sheetMeta.ironMenThresholdRate;
   const todayLabel = getTodayLabel();
@@ -289,8 +289,16 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
   });
 
   const totalPossible = validIndexes.length;
+  const completedTotalPossible = completedIndexes.length;
   const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
-  const ironMen = playerTotals.filter((p) => p.rollingRate >= ironMenThresholdRate);
+  const ironMen = dataRows
+    .map((row) => {
+      const name = getPlayerDisplayName(row);
+      return { name, ...computeRollingStats(row, completedIndexes) };
+    })
+    .filter(
+      (p) => p.totalPossible > 0 && p.rollingRate >= ironMenThresholdRate
+    );
 
   const momentumMarks = dataRows.reduce((sum, row) => {
     const rowMarks = lastSevenIndexes.filter(
@@ -308,6 +316,7 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
     dataRows,
     headerRow,
     validIndexes,
+    completedIndexes,
     lastSevenIndexes,
     ironMen,
     ironMenThresholdRate,
@@ -316,6 +325,7 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
     momentumPossible,
     top,
     totalPossible,
+    completedTotalPossible,
     todayLabel,
     rosterParticipation,
   };
