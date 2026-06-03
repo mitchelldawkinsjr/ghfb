@@ -69,7 +69,7 @@ jobs:
 
           for attempt in 1 2 3 4 5; do
             echo "ssh-keyscan attempt ${attempt}/5 for ${host}..."
-            if ssh-keyscan -T 15 -p 22 -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
+            if ssh-keyscan -4 -T 15 -p 22 -t ed25519,rsa,ecdsa -H "${host}" >> ~/.ssh/known_hosts 2>keyscan.err && [ -s ~/.ssh/known_hosts ]; then
               echo "ssh-keyscan succeeded."
               exit 0
             fi
