@@ -88,7 +88,7 @@ jobs:
           set -euo pipefail
           host="${VPS_HOST//[[:space:]]/}"
           user="${VPS_USER//[[:space:]]/}"
-          ssh_opts="-o ConnectTimeout=20 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
+          ssh_opts="-4 -o ConnectTimeout=20 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256"
 
           ssh ${ssh_opts} "${user}@${host}" << 'EOF'
             set -e
