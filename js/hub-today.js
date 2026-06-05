@@ -69,7 +69,7 @@ function renderStatsRow(summary) {
   return renderRow(
     "Team",
     `<span>Momentum ${momentum} · ${ironCount} ironmen</span>`,
-    "Through yesterday"
+    "Live"
   );
 }
 
@@ -79,6 +79,7 @@ function renderActions(liftPlan, condPlan) {
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
     `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
+    `<a class="today-btn" href="/weightroom/">Weightroom tracker</a>` +
     `<div class="today-actions-pair">` +
     `<a class="today-btn" href="${escapeHtml(liftHref)}">Open lift</a>` +
     `<a class="today-btn" href="${escapeHtml(condHref)}">Open conditioning</a>` +
@@ -89,7 +90,8 @@ function renderError(message) {
   rowsEl.innerHTML = renderRow("Status", `<span class="today-status-warn">${escapeHtml(message)}</span>`);
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
-    `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>`;
+    `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
+    `<a class="today-btn" href="/weightroom/">Weightroom tracker</a>`;
   panel?.classList.remove("is-loading");
 }
 

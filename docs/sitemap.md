@@ -20,6 +20,7 @@
 | `/check-in-config.js` | Optional override | `GHFB_CHECKIN_SCRIPT_URL` (legacy; proxy is primary) | — |
 | `/lift/` | nginx proxy → `gh-lift` | GH Lift training app | Sibling container |
 | `/film/` | nginx proxy → `flim-review-app` | Film review static site | Sibling container |
+| `/weightroom/` | nginx proxy → `weightroom-app` | Weightroom Tracker (React + API + Postgres) | Sibling container |
 
 **SPA fallback:** `location /` uses `try_files $uri $uri/ /index.html` (only affects unknown paths).
 
@@ -44,6 +45,7 @@ ghfb.360web.cloud/
 │   └── checkin            → Apps Script (no cache)
 ├── lift/                  → GH Lift (in-app proxy)
 ├── film/                  → Film Review (in-app proxy)
+├── weightroom/            → Weightroom Tracker (in-app proxy)
 └── [external] Form, Drive
 ```
 
@@ -53,13 +55,14 @@ ghfb.360web.cloud/
 |------|-------------|
 | Film Review Hub | `/film/` (in-app) |
 | GH Lift | `/lift/` (in-app) |
+| Weightroom Tracker | `/weightroom/` (in-app) |
 | Coach Check-in | `/check-in.html` (on-site) |
 | Summer Attendance Form | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) |
 | Attendance Dashboard | `/attendance-dashboard.html` |
 | 2026 Schedule | `/schedule.html` |
 | Team Drive | [Google Drive folder](https://drive.google.com/drive/folders/18J5gEtYQynNmm1pXk7EjgjFzI_Hnko7I?usp=drive_link) |
 
-**Not on the hub:** Team Weightroom Tracker (hidden; separate repo for maintainers).
+**Also:** [Weightroom Tracker](https://weightroom.360web.cloud/) standalone subdomain (same app as `/weightroom/`).
 
 ## Off-repo but coupled
 
@@ -68,3 +71,4 @@ ghfb.360web.cloud/
 | Apps Script | `scripts/coach-check-in/Code.gs` | `getCheckInData`, `toggleCheckIn` |
 | School sheet | Tab `2026 Summer WR & Conditioning` | Source of truth for marks |
 | GitHub Actions | `.github/workflows/deploy-vps.yml` | rsync + `docker compose` on `main` |
+| Weightroom app | `mitchelldawkinsjr/team-weightroom-tracker` | Session logging; deploy to `weightroom-app` |

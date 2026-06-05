@@ -27,7 +27,7 @@ Built from `Dockerfile`:
 
 - nginx Alpine + Python 3
 - Static hub pages, shared JS modules, PWA assets
-- Reverse proxy routes for `/api/checkin`, `/api/attendance.csv`, `/lift/`, `/film/`
+- Reverse proxy routes for `/api/checkin`, `/api/attendance.csv`, `/lift/`, `/film/`, `/weightroom/`
 - Runs `/opt/start-ghfb.sh` (check-in proxy + nginx)
 
 ## In-app sibling apps
@@ -36,8 +36,11 @@ Built from `Dockerfile`:
 |------|-------------------|
 | `/lift/` | `gh-lift` (gh-lift repo) |
 | `/film/` | `flim-review-app` (flim-review repo) |
+| `/weightroom/` | `weightroom-app` (team-weightroom-tracker repo, port 3000) |
 
-Both must join the same Docker network as the hub container.
+All sibling containers must join the same Docker network as the hub container (`360ws-network`).
+
+**Weightroom standalone:** NPM host `weightroom.360web.cloud` → `weightroom-app:3000` (same container; no path prefix).
 
 ## Apps Script deploy (separate from ghfb)
 
@@ -64,5 +67,7 @@ open http://localhost:8020/
 | Check-in API | `/api/checkin?action=getCheckInData&sessionType=weightroom` returns JSON |
 | In-app Lift | `/lift/` returns GH Lift UI |
 | In-app Film | `/film/` returns season selector |
+| In-app Weightroom | `/weightroom/` returns Weightroom Tracker SPA |
+| Standalone Weightroom | `weightroom.360web.cloud` returns same app at `/` |
 
 After sheet column changes, coaches may need a new date + `C` headers before check-in succeeds for that day.

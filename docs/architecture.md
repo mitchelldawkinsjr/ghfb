@@ -33,6 +33,7 @@ flowchart TB
   subgraph sibling["Sibling containers on shared network"]
     LiftNGX["gh-lift nginx"]
     FilmNGX["flim-review-app nginx"]
+    Weightroom["weightroom-app Node :3000"]
   end
 
   Fan --> NPM
@@ -40,6 +41,7 @@ flowchart TB
   NPM --> NGX
   NGX -->|"/lift/"| LiftNGX
   NGX -->|"/film/"| FilmNGX
+  NGX -->|"/weightroom/"| Weightroom
   NGX -->|"/api/attendance.csv" 90s cache| CSVpub
   NGX -->|"/api/checkin" no-store| PY
   PY --> GAS
