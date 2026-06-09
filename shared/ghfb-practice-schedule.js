@@ -1,11 +1,12 @@
 import { parseCSV } from "/shared/ghfb-csv.js";
-import { parseHeaderDate, getToday } from "/shared/ghfb-attendance.js";
+import { parseHeaderDate } from "/shared/ghfb-attendance.js";
 
+/** IANA timezone for Eastern Time — automatically EDT (UTC-4) in summer, EST (UTC-5) in winter. */
 const EASTERN_TZ = "America/New_York";
 
 /**
- * Returns { hours, minutes, seconds } in Eastern Time regardless of where
- * the browser's system clock is set.
+ * Returns { hours, minutes, seconds } in Eastern Daylight Time (EDT / America/New_York)
+ * regardless of where the browser's system clock is set.
  */
 export function getEasternHMS(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -26,6 +27,22 @@ export function getEasternHMS(date = new Date()) {
 export function getEasternTotalMinutes(date = new Date()) {
   const { hours, minutes } = getEasternHMS(date);
   return hours * 60 + minutes;
+}
+
+/**
+ * Returns a Date object for today's date at midnight, computed using Eastern Time
+ * (EDT in summer, EST in winter). Avoids relying on the browser's local timezone,
+ * so the practice schedule "today" check works correctly on any device.
+ */
+export function getEasternDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: EASTERN_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const get = (type) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return new Date(get("year"), get("month") - 1, get("day"));
 }
 
 export const PRACTICE_SCHEDULE_CSV_URL = "/api/practice-schedule.csv";
@@ -272,7 +289,7 @@ export function findNextPracticeBlock(blocks, totalMinutes) {
 
 export function isPracticeSheetToday(meta) {
   if (!meta?.date) return false;
-  const today = getToday();
+  const today = getEasternDate();
   return meta.date.getTime() === today.getTime();
 }
 
