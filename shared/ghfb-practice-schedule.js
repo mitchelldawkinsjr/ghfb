@@ -197,18 +197,18 @@ function forwardFillLabels(dataRows) {
 /**
  * Collapse CSV rows into merged timeline blocks.
  *
- * Rules:
- * - A row with an explicit label starts a new block.
- * - A blank row that is MORE than one slot (> PRACTICE_SLOT_MINUTES) from
- *   the previous row is a boundary/gap row: it closes the current block at
- *   its start time and records that time as `pendingStart` so the NEXT
- *   labeled block begins exactly where the current one ended (no gaps).
- * - A blank row exactly one slot apart is a merged-cell continuation.
+ * Each row's time column is treated as the END of that 5-minute slot.
+ * Periods are chained back-to-back: the next block starts where the
+ * previous one ended.
  *
- * The `prevStartMinutes` used for gap detection is always the ACTUAL CSV
- * time of the most recently seen row (not the effectiveStart override),
- * so that continuation rows after a label whose start was snapped forward
- * are still evaluated relative to the sheet's real time values.
+ * Rules:
+ * - A labeled row starts a new block. Its time is the end of the first
+ *   slot; the start snaps to the previous block's end (or a gap boundary).
+ * - A blank row exactly one slot after the previous row continues the block;
+ *   its time becomes the new end.
+ * - A blank row more than one slot after the previous row is a boundary:
+ *   it closes the current block at that time and sets pendingStart for
+ *   the next labeled block.
  */
 export function collapsePracticeBlocks(rows) {
   const dataRows = (rows || []).slice(PRACTICE_HEADER_ROWS);
@@ -217,74 +217,72 @@ export function collapsePracticeBlocks(rows) {
   const filled = forwardFillLabels(dataRows);
   const blocks = [];
   let current = null;
-  let prevStartMinutes = null;
+  let prevRowMinutes = null;
   let pendingStart = null;
 
+  function pushCurrent() {
+    if (!current) return;
+    blocks.push(current);
+    current = null;
+  }
+
+  function blockStartFor(rowMinutes) {
+    if (pendingStart != null) return pendingStart;
+    if (blocks.length) return blocks[blocks.length - 1].endMinutes;
+    return rowMinutes;
+  }
+
+  function openBlock(slot, rowMinutes, startMinutes) {
+    current = {
+      label: slot.label,
+      title: blockDisplayTitle(slot.label),
+      startMinutes,
+      endMinutes: rowMinutes,
+      startTimeText: formatPracticeClock(startMinutes),
+      endTimeText: formatPracticeClock(rowMinutes),
+      startSheetRow: slot.sheetRow,
+      endSheetRow: slot.sheetRow,
+      slotCount: 1,
+    };
+  }
+
   for (const slot of filled) {
-    const startMinutes = parsePracticeTime(slot.timeText);
-    if (startMinutes == null) continue;
+    const rowMinutes = parsePracticeTime(slot.timeText);
+    if (rowMinutes == null) continue;
 
     if (slot.rawLabel) {
-      // If a gap row previously closed a block, snap this block's start to
-      // that boundary time so periods are back-to-back with no dead time.
-      const effectiveStart = pendingStart ?? startMinutes;
+      const startMinutes = blockStartFor(rowMinutes);
       pendingStart = null;
-
-      // Close the previous block, ending exactly where this one starts.
-      if (current) {
-        current.endMinutes = effectiveStart;
-        current.endTimeText = formatPracticeClock(effectiveStart);
-        blocks.push(current);
-      }
-      current = {
-        label: slot.label,
-        title: blockDisplayTitle(slot.label),
-        startMinutes: effectiveStart,
-        endMinutes: effectiveStart + PRACTICE_SLOT_MINUTES,
-        startTimeText: formatPracticeClock(effectiveStart),
-        endTimeText: formatPracticeClock(effectiveStart + PRACTICE_SLOT_MINUTES),
-        startSheetRow: slot.sheetRow,
-        endSheetRow: slot.sheetRow,
-        slotCount: 1,
-      };
-      // Use the ACTUAL CSV time for gap detection on subsequent blank rows
-      // so continuations (4:30, 4:35 after a 4:25 label snapped to 4:20)
-      // are measured correctly against the sheet's real row times.
-      prevStartMinutes = startMinutes;
+      pushCurrent();
+      openBlock(slot, rowMinutes, startMinutes);
+      prevRowMinutes = rowMinutes;
       continue;
     }
 
-    // Blank row — decide whether it continues the current block or is a gap.
     const gap =
-      prevStartMinutes != null
-        ? startMinutes - prevStartMinutes
+      prevRowMinutes != null
+        ? rowMinutes - prevRowMinutes
         : PRACTICE_SLOT_MINUTES;
 
     if (!current || gap > PRACTICE_SLOT_MINUTES) {
-      // Gap/boundary row: close the current block and record this time as
-      // the pending start for the next block so periods share their boundary.
       if (current) {
-        current.endMinutes = startMinutes;
-        current.endTimeText = formatPracticeClock(startMinutes);
-        blocks.push(current);
-        current = null;
+        current.endMinutes = rowMinutes;
+        current.endTimeText = formatPracticeClock(rowMinutes);
+        pushCurrent();
       }
-      // Always update pendingStart to the latest gap row (handles multiple
-      // consecutive gap rows by using the most recent boundary time).
-      pendingStart = startMinutes;
-      prevStartMinutes = startMinutes;
+      pendingStart = rowMinutes;
+      prevRowMinutes = rowMinutes;
       continue;
     }
 
-    // True continuation (merged cell run in the sheet).
-    current.endMinutes = startMinutes + PRACTICE_SLOT_MINUTES;
-    current.endTimeText = formatPracticeClock(current.endMinutes);
+    current.endMinutes = rowMinutes;
+    current.endTimeText = formatPracticeClock(rowMinutes);
     current.endSheetRow = slot.sheetRow;
     current.slotCount += 1;
-    prevStartMinutes = startMinutes;
+    prevRowMinutes = rowMinutes;
   }
 
-  if (current) blocks.push(current);
+  pushCurrent();
   return blocks;
 }
 
