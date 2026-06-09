@@ -6,6 +6,9 @@ import {
 import { fetchLiftPlanRows, getTodayLiftPlan, getTodayConditioningPlan } from "/shared/ghfb-lift-plan.js";
 import { formatPct, escapeHtml } from "/shared/ghfb-dom.js";
 
+const PRACTICE_SCHEDULE_URL =
+  "https://docs.google.com/spreadsheets/d/1c5NqGj5b-7CgVY3UuOziaNgDJqDIo0J2j2HjV443HTU/edit?gid=224955206#gid=224955206";
+
 const panel = document.getElementById("todayPanel");
 const dateLabel = document.getElementById("todayDateLabel");
 const rowsEl = document.getElementById("todayRows");
@@ -79,6 +82,7 @@ function renderActions(liftPlan, condPlan) {
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
     `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
+    `<a class="today-btn" href="${escapeHtml(PRACTICE_SCHEDULE_URL)}" target="_blank" rel="noopener noreferrer">Practice schedule</a>` +
     `<a class="today-btn" href="/weightroom/">Weightroom tracker</a>` +
     `<div class="today-actions-pair">` +
     `<a class="today-btn" href="${escapeHtml(liftHref)}">Open lift</a>` +
@@ -91,6 +95,7 @@ function renderError(message) {
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
     `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
+    `<a class="today-btn" href="${escapeHtml(PRACTICE_SCHEDULE_URL)}" target="_blank" rel="noopener noreferrer">Practice schedule</a>` +
     `<a class="today-btn" href="/weightroom/">Weightroom tracker</a>`;
   panel?.classList.remove("is-loading");
 }

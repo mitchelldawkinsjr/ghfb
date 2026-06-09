@@ -16,6 +16,7 @@ The hub (`index.html`) links team tools in navy/gold styling and includes a **To
 | Summer Attendance Form | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) (opens in browser) |
 | Attendance Dashboard | `/attendance-dashboard.html` |
 | 2026 Schedule | `/schedule.html` (summer calendar **.ics** download) |
+| Practice Schedule | [Google Sheet](https://docs.google.com/spreadsheets/d/1c5NqGj5b-7CgVY3UuOziaNgDJqDIo0J2j2HjV443HTU/edit?gid=224955206#gid=224955206) (opens in browser) |
 | Team Drive | [Google Drive](https://drive.google.com/drive/folders/18J5gEtYQynNmm1pXk7EjgjFzI_Hnko7I?usp=drive_link) (opens in browser) |
 
 **Not on the hub:** Team Weightroom Tracker is hidden for now.
