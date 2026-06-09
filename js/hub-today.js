@@ -2,12 +2,17 @@ import { fetchCsvRows } from "/shared/ghfb-csv.js";
 import {
   buildAttendanceSummary,
   describeTodaySessionStatus,
+  getTodaySessionStatus,
+  getTodayLabel,
 } from "/shared/ghfb-attendance.js";
 import { fetchLiftPlanRows, getTodayLiftPlan, getTodayConditioningPlan } from "/shared/ghfb-lift-plan.js";
+import {
+  describePracticeForNow,
+  fetchPracticeScheduleRows,
+} from "/shared/ghfb-practice-schedule.js";
 import { formatPct, escapeHtml } from "/shared/ghfb-dom.js";
 
-const PRACTICE_SCHEDULE_URL =
-  "https://docs.google.com/spreadsheets/d/1c5NqGj5b-7CgVY3UuOziaNgDJqDIo0J2j2HjV443HTU/edit?gid=224955206#gid=224955206";
+const PRACTICE_TIMELINE_URL = "/practice-schedule.html";
 
 const panel = document.getElementById("todayPanel");
 const dateLabel = document.getElementById("todayDateLabel");
@@ -57,11 +62,59 @@ function renderConditioningRow(plan) {
   return renderRow("Conditioning", link);
 }
 
-function renderAttendanceRow(headerRow) {
+function renderPracticeRow(summary, practiceError) {
+  if (practiceError) {
+    return renderRow(
+      "Practice",
+      `<span class="today-status-info">Schedule unavailable</span>`,
+      practiceError
+    );
+  }
+  if (!summary?.isToday) return "";
+
+  const { current, next, status } = summary;
+  const timelineLink = `<a href="${escapeHtml(PRACTICE_TIMELINE_URL)}">`;
+
+  if (!summary.blocks.length) {
+    return renderRow(
+      "Practice",
+      `${timelineLink}<span class="today-status-info">No periods in sheet</span></a>`
+    );
+  }
+
+  if (status === "before" && next) {
+    return renderRow(
+      "Practice",
+      `${timelineLink}Starts ${escapeHtml(next.startTimeText)} · ${escapeHtml(next.title)}</a>`
+    );
+  }
+
+  if (status === "after") {
+    return renderRow("Practice", `${timelineLink}Practice ended</a>`);
+  }
+
+  if (current) {
+    const link = `${timelineLink}Now: ${escapeHtml(current.title)}</a>`;
+    const note = next
+      ? `Timer & timeline · Up next: ${next.title} at ${next.startTimeText}`
+      : "Timer & timeline";
+    return renderRow("Practice", link, note);
+  }
+
+  return renderRow("Practice", `${timelineLink}Between periods</a>`, "Timer & timeline");
+}
+
+function renderAttendanceRow(headerRow, dataRows) {
   const status = describeTodaySessionStatus(headerRow);
+  const session = getTodaySessionStatus(headerRow, dataRows);
+  let note = "";
+  if (session.practiceCol != null) {
+    note = `Practice check-in ${session.practiceChecked}/${session.total} (${getTodayLabel()})`;
+  }
   return renderRow(
     "Attendance",
-    `<span class="${statusClass(status.level)}">${escapeHtml(status.message)}</span>`
+    `<span class="${statusClass(status.level)}">${escapeHtml(status.message)}</span>`,
+    note
   );
 }
 
@@ -69,10 +122,14 @@ function renderStatsRow(summary) {
   const momentum = summary.momentumPossible > 0 ? formatPct(summary.momentumRate) : "—";
   const ironCount =
     summary.completedTotalPossible > 0 ? String(summary.ironMen.length) : "—";
+  const practiceNote =
+    summary.practiceParticipation?.practiceCols > 0
+      ? `${summary.practiceParticipation.practiceAttended}/${summary.practiceParticipation.rosterSize} marked practice (${summary.practiceParticipation.practiceCols} P columns)`
+      : "Live";
   return renderRow(
     "Team",
     `<span>Momentum ${momentum} · ${ironCount} ironmen</span>`,
-    "Live"
+    practiceNote
   );
 }
 
@@ -82,8 +139,7 @@ function renderActions(liftPlan, condPlan) {
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
     `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
-    `<a class="today-btn" href="${escapeHtml(PRACTICE_SCHEDULE_URL)}" target="_blank" rel="noopener noreferrer">Practice schedule</a>` +
-    `<a class="today-btn" href="/weightroom/">Weightroom tracker</a>` +
+    `<a class="today-btn" href="${escapeHtml(PRACTICE_TIMELINE_URL)}">Practice schedule</a>` +
     `<div class="today-actions-pair">` +
     `<a class="today-btn" href="${escapeHtml(liftHref)}">Open lift</a>` +
     `<a class="today-btn" href="${escapeHtml(condHref)}">Open conditioning</a>` +
@@ -95,7 +151,7 @@ function renderError(message) {
   actionsEl.innerHTML =
     `<a class="today-btn today-btn--primary" href="/check-in.html">Open check-in</a>` +
     `<a class="today-btn" href="/attendance-dashboard.html">Dashboard</a>` +
-    `<a class="today-btn" href="${escapeHtml(PRACTICE_SCHEDULE_URL)}" target="_blank" rel="noopener noreferrer">Practice schedule</a>` +
+    `<a class="today-btn" href="${escapeHtml(PRACTICE_TIMELINE_URL)}">Practice schedule</a>` +
     `<a class="today-btn" href="/weightroom/">Weightroom tracker</a>`;
   panel?.classList.remove("is-loading");
 }
@@ -110,7 +166,7 @@ async function loadTodayPanel() {
   }
 
   try {
-    const [attRows, liftResult] = await Promise.all([
+    const [attRows, liftResult, practiceResult] = await Promise.all([
       fetchCsvRows(),
       fetchLiftPlanRows().then(
         (rows) => ({
@@ -118,7 +174,14 @@ async function loadTodayPanel() {
           condPlan: getTodayConditioningPlan(rows),
           error: null,
         }),
-        (err) => ({ plan: null, condPlan: null, error: "Add Daily Lift Plan tab and publish CSV (see docs)" })
+        () => ({ plan: null, condPlan: null, error: "Add Daily Lift Plan tab and publish CSV (see docs)" })
+      ),
+      fetchPracticeScheduleRows().then(
+        ({ rows }) => ({
+          summary: describePracticeForNow(rows),
+          error: null,
+        }),
+        () => ({ summary: null, error: "Could not load practice schedule" })
       ),
     ]);
 
@@ -126,7 +189,8 @@ async function loadTodayPanel() {
     rowsEl.innerHTML =
       renderLiftRow(liftResult.plan, liftResult.error) +
       renderConditioningRow(liftResult.condPlan) +
-      renderAttendanceRow(summary.headerRow) +
+      renderPracticeRow(practiceResult.summary, practiceResult.error) +
+      renderAttendanceRow(summary.headerRow, summary.dataRows) +
       renderStatsRow(summary);
     renderActions(liftResult.plan, liftResult.condPlan);
     panel?.classList.remove("is-loading");

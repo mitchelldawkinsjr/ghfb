@@ -2,7 +2,7 @@
 
 Static landing page for Godwin Heights Football apps and resources. Live at **https://ghfb.360web.cloud**.
 
-The hub (`index.html`) links team tools in navy/gold styling and includes a **Today** strip (lift plan, attendance column status, momentum, ironmen, quick links). The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
+The hub (`index.html`) links team tools in navy/gold styling and includes a **Today** strip (lift plan, practice timeline when the sheet date is today, attendance column status, momentum, ironmen, quick links). The footer shows the current season and year (Winter Dec–Feb, Spring Mar–May, Summer Jun–Aug, Fall Sep–Nov) based on the visitor’s local date.
 
 **Architecture docs:** [docs/README.md](docs/README.md) — sitemap, data flows, deploy, and sheet model.
 
@@ -16,7 +16,7 @@ The hub (`index.html`) links team tools in navy/gold styling and includes a **To
 | Summer Attendance Form | [Google Form](https://docs.google.com/forms/d/e/1FAIpQLSdWqLnvov1370FHO766NAIofeT9j2qsgKTHR37Puwodw0piZA/viewform) (opens in browser) |
 | Attendance Dashboard | `/attendance-dashboard.html` |
 | 2026 Schedule | `/schedule.html` (summer calendar **.ics** download) |
-| Practice Schedule | [Google Sheet](https://docs.google.com/spreadsheets/d/1c5NqGj5b-7CgVY3UuOziaNgDJqDIo0J2j2HjV443HTU/edit?gid=224955206#gid=224955206) (opens in browser) |
+| Practice Schedule | `/practice-schedule.html` (live timeline + countdown timer; edit in [Google Sheet](https://docs.google.com/spreadsheets/d/1c5NqGj5b-7CgVY3UuOziaNgDJqDIo0J2j2HjV443HTU/edit?gid=224955206#gid=224955206)) |
 | Team Drive | [Google Drive](https://drive.google.com/drive/folders/18J5gEtYQynNmm1pXk7EjgjFzI_Hnko7I?usp=drive_link) (opens in browser) |
 
 **Not on the hub:** Team Weightroom Tracker is hidden for now.
@@ -42,6 +42,12 @@ Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sh
 
 Add a **`Daily Lift Plan`** tab on the school spreadsheet with columns **Date**, **Label**, **Phase**, **Session**, and optional **Notes** / **LiftLink**. Publish that tab to web (CSV); ghfb proxies it at **`/api/lift-plan.csv`** (`gid=1599839883` in `deploy/nginx.conf`). The hub today strip and check-in banner read today’s row. Full schema: [docs/sheet-model.md](docs/sheet-model.md).
 
+### Practice schedule (sheet tab)
+
+The **Practice Schedule** tab (`gid=224955206`) is a 5-minute grid (rows 5–31, 4:00 PM–6:15 PM). Rows 1–4 are headers (row 4 position columns are ignored for the timeline). Merged activity labels in column C are forward-filled and collapsed into blocks. Publish that tab to web (CSV); ghfb proxies it at **`/api/practice-schedule.csv`**. **`/practice-schedule.html`** shows the timeline with a live “now” marker and a sheet-driven countdown timer (wall-clock sync on practice days, optional manual run, audio cues, and period announcements) when the sheet date (row 3) matches today. Coaches with the **coach PIN** can edit period title, notes, and end time in the UI (writes via Apps Script `updatePracticeBlock`). The hub today strip shows now/next only on matching practice days.
+
+**Apps Script:** After updating `scripts/coach-check-in/Code.gs`, redeploy the web app (new version). Share the practice workbook (`PRACTICE_SPREADSHEET_ID`) with the script account as Editor. Run `testPracticeSheetAccess` once to verify.
+
 ### Coach check-in
 
 `check-in.html` is a coach tap-list for weightroom / conditioning.
@@ -62,8 +68,10 @@ The team tools hub is installable — use **Add to Home Screen** on the hub or *
 | `shared/ghfb-csv.js` | CSV parse, session cache, fetch `/api/attendance.csv` |
 | `shared/ghfb-attendance.js` | Sheet column rules, rolling stats, roster rows, at-risk helpers |
 | `shared/ghfb-lift-plan.js` | Daily lift plan CSV fetch and today lookup |
+| `shared/ghfb-practice-schedule.js` | Practice schedule CSV parse, block collapse, now/next |
 | `shared/ghfb-dom.js` | `formatPct`, `escapeHtml` |
 | `js/hub-today.js` | Hub today strip |
+| `js/practice-schedule.js` | Practice timeline + countdown timer page |
 | `js/attendance-dashboard.js` | Dashboard UI |
 | `js/check-in.js` | Coach check-in UI |
 
@@ -75,6 +83,7 @@ Pages load shared code with `<script type="module" src="…">`. Use a local HTTP
 |------|---------|
 | `index.html` | Team tools hub (PWA entry) |
 | `schedule.html` / `images/schedule-2026.jpg` | 2026 varsity schedule |
+| `practice-schedule.html` | Live practice timeline and countdown timer from sheet |
 | `check-in.html` | Coach tap-list check-in |
 | `attendance-dashboard.html` | Live attendance dashboard |
 | `shared/` / `js/` | Shared theme + sheet logic + page scripts |
@@ -90,13 +99,16 @@ Pages load shared code with `<script type="module" src="…">`. Use a local HTTP
 ```bash
 cd ~/Projects/ghfb
 
-python3 -m http.server 8080
-open http://localhost:8080/
+# Static files + CSV API proxies (practice schedule, attendance, lift plan):
+GHFB_PREVIEW_PORT=8888 python3 tools/local-preview.py
+open http://localhost:8888/practice-schedule.html
 
-# Production-like stack:
+# Production-like stack (full nginx + check-in proxy):
 docker compose -f docker-compose.prod.yml up --build
 open http://localhost:8020/
 ```
+
+Plain `python3 -m http.server` does not proxy `/api/*.csv`, so the practice timeline and dashboards need `tools/local-preview.py` or Docker.
 
 ## Deployment
 

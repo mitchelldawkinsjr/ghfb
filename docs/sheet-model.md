@@ -6,7 +6,7 @@ Attendance lives on the school Google Sheet, tab **`2026 Summer WR & Conditionin
 
 ```text
 Col A–B:   First name / Last name (roster rows start at row 2)
-Col 3+:    [M/D date] [optional C] [M/D date] [C] …
+Col 3+:    [M/D date] [optional C] [M/D date] [C] … [P M/D practice] …
            then summary columns:
            "Current Total", "Ironman %", "# of sessions this summer",
            "% required for ironman"
@@ -20,6 +20,24 @@ Col 3+:    [M/D date] [optional C] [M/D date] [C] …
 | **conditioning** | **`C`** in the column immediately after today’s date header |
 
 If there is no `C` after today’s date, conditioning check-in returns no column (Apps Script does not throw; the UI shows an error to add the column).
+
+## Practice columns (`P`)
+
+Football practice attendance uses headers starting with **`P`** and a date, e.g. **`P 6/9`**, **`P 6/11`**.
+
+| Rule | Detail |
+|------|--------|
+| Mark | `X` = attended practice |
+| Ironmen / momentum | **Not included** — only plain `M/D` date headers + paired `C` count |
+| Dashboard | Green **Practice** columns; roster pie “at Practice” when P columns exist |
+| Hub | Shows today’s practice check-in count when a `P` column matches today |
+| Coach check-in | **Practice** tab writes `X` to today’s `P` column (same API as WR/C) |
+
+Verify after sheet changes:
+
+```bash
+node tools/verify-attendance-practice.mjs
+```
 
 ## Mark convention
 

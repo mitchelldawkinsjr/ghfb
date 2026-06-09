@@ -236,8 +236,14 @@ function queueSuffix() {
   return parts.length ? ` · ${parts.join(" · ")}` : "";
 }
 
+function sessionKindLabel(type) {
+  if (type === "conditioning") return "Conditioning";
+  if (type === "practice") return "Practice";
+  return "Weightroom";
+}
+
 function statusLine() {
-  const kind = sessionType === "conditioning" ? "Conditioning" : "Weightroom";
+  const kind = sessionKindLabel(sessionType);
   const n = players.filter((p) => p.checked).length;
   return `${kind} · ${todayLabel} · ${n} / ${players.length} checked in${queueSuffix()}`;
 }
@@ -404,6 +410,9 @@ function toggle(sheetRow) {
 async function load() {
   setStatus("Loading roster…", false);
   gridEl.innerHTML = "";
+  buttonByRow.clear();
+  rowUiState.clear();
+  players = [];
   dashboardRefreshHint = false;
 
   const cachedApi = readCheckInCache(sessionType);
@@ -429,9 +438,14 @@ async function load() {
     const headerRow = rows?.[0] || [];
     loadTodayBanner(headerRow);
 
-    if (!players.length && rows) {
+    if (rows) {
       const shell = buildFromCsv(rows, sessionType);
       if (shell.ok) applyData(shell);
+      else if (!apiData.ok) {
+        syncing = false;
+        setStatus(shell.error || apiData.error, true);
+        return;
+      }
     }
 
     if (apiData.ok) {
@@ -457,7 +471,7 @@ async function load() {
     }
 
     syncing = false;
-    if (!players.length && rows) {
+    if (rows) {
       const shell = buildFromCsv(rows, sessionType);
       if (shell.ok) applyData({ ...shell, viewOnly: true });
       else setStatus(shell.error || apiData.error, true);
@@ -473,21 +487,17 @@ async function load() {
     }
 
     syncing = false;
-    if (!players.length) {
-      try {
-        const rows = await fetchCsvRows();
-        const shell = buildFromCsv(rows, sessionType);
-        loadTodayBanner(rows[0] || []);
-        if (shell.ok) {
-          applyData({ ...shell, viewOnly: true });
-          return;
-        }
-        setStatus(shell.error || msg, true);
-      } catch {
-        setStatus(msg, true);
+    try {
+      const rows = await fetchCsvRows();
+      const shell = buildFromCsv(rows, sessionType);
+      loadTodayBanner(rows[0] || []);
+      if (shell.ok) {
+        applyData({ ...shell, viewOnly: true });
+        return;
       }
-    } else {
-      setStatus(`${msg} · showing cached roster`, true);
+      setStatus(shell.error || msg, true);
+    } catch {
+      setStatus(msg, true);
     }
   }
 }

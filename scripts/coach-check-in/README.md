@@ -63,6 +63,17 @@ Push to `main` (or redeploy Docker).
 
 Apps Script → **Project settings → Script properties** → add `COACH_PIN`.
 
+### 7. Practice schedule writes
+
+`Code.gs` also powers coach edits on **`/practice-schedule.html`** (`updatePracticeBlock`).
+
+1. Set `PRACTICE_SPREADSHEET_ID` at the top of `Code.gs` (practice workbook ID from its URL).
+2. Share that workbook with the **same Google account** that runs the script (Editor).
+3. **Run → `testPracticeSheetAccess`** → logs should show block count.
+4. After any `Code.gs` change: **Deploy → Manage deployments → New version → Deploy**.
+
+Edits update column C on the practice tab: label on the block’s first row, blanks on continuation rows. Changing end time may relocate the next period’s label in the sheet.
+
 ---
 
 ## Alternative: script bound to school sheet
@@ -101,7 +112,9 @@ Instead of JSONP + `check-in-config.js`, proxy `/api/checkin` to your `/exec` UR
 | Call | Purpose |
 |------|---------|
 | `GET ?action=getCheckInData&sessionType=weightroom&pin=` | Roster + today’s marks |
+| `GET ?action=getCheckInData&sessionType=practice&pin=` | Roster + today’s **P** practice column |
 | `GET ?action=toggleCheckIn&sheetRow=5&sessionType=weightroom&pin=` | Toggle **X** |
+| `GET ?action=toggleCheckIn&sheetRow=5&sessionType=practice&pin=` | Toggle **X** in today’s practice column |
 | `POST` JSON `{ "action":"toggleCheckIn", ... }` | Toggle (via nginx proxy) |
 
 Add `&callback=fnName` for JSONP (used by ghfb).
@@ -113,6 +126,7 @@ Add `&callback=fnName` for JSONP (used by ghfb).
 - Tab name: **`2026 Summer WR & Conditioning`**
 - Today’s date column header (e.g. **`6/2`**)
 - **`C`** column immediately after that date for conditioning
+- **`P 6/9`** (or **`P`** + today’s date) for football practice — separate from ironmen
 - Player names in columns **A** and **B**
 
 Form responses and coach tap-list both update this same workbook — no copy needed.

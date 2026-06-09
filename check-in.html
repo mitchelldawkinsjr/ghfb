@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coach Check-in — Godwin Heights Football</title>
-  <meta name="description" content="Coach tap-list attendance check-in for summer weightroom and conditioning." />
+  <meta name="description" content="Coach tap-list attendance check-in for summer weightroom, conditioning, and practice." />
   <meta name="theme-color" content="#0a0c10" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -93,6 +93,10 @@
       background: rgba(159, 197, 232, 0.18);
       border-color: var(--cond);
     }
+    .seg button.active[data-type="practice"] {
+      background: rgba(184, 212, 168, 0.22);
+      border-color: #b8d4a8;
+    }
     #search {
       flex: 1;
       min-width: 160px;
@@ -179,7 +183,7 @@
   <div class="shell">
     <a class="back-link" href="/">← Back to Team Tools</a>
     <h1>Coach check-in</h1>
-    <p class="subtitle ghfb-subtitle">Tap a name to mark <strong>X</strong> for today’s session. Changes save to the attendance sheet.</p>
+    <p class="subtitle ghfb-subtitle">Tap a name to mark <strong>X</strong> for today’s weightroom, conditioning, or practice column. Changes save to the attendance sheet.</p>
 
     <div id="todayBanner" class="banner info" hidden></div>
 
@@ -192,6 +196,7 @@
       <div class="seg" role="group" aria-label="Session type">
         <button type="button" data-type="weightroom" class="active">Weightroom</button>
         <button type="button" data-type="conditioning">Conditioning</button>
+        <button type="button" data-type="practice">Practice</button>
       </div>
       <input type="search" id="search" placeholder="Search names…" autocomplete="off" />
       <div class="pin-row" id="pinRow">

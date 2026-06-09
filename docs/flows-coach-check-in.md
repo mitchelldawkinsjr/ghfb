@@ -1,6 +1,6 @@
 # Flow: Coach check-in
 
-`check-in.html` lets coaches mark **weightroom** or **conditioning** attendance for today by tapping names. Writes go through `/api/checkin` → Python proxy → Apps Script → school sheet.
+`check-in.html` lets coaches mark **weightroom**, **conditioning**, or **practice** (`P` column) attendance for today by tapping names. Writes go through `/api/checkin` → Python proxy → Apps Script → school sheet.
 
 Entry: https://ghfb.360web.cloud/check-in.html  
 Implementation: `js/check-in.js` (ES module) with `shared/ghfb-csv.js` and `shared/ghfb-attendance.js`.
@@ -10,7 +10,7 @@ Implementation: `js/check-in.js` (ES module) with `shared/ghfb-csv.js` and `shar
 ```mermaid
 flowchart TD
   start[Open check-in.html] --> pin[PIN from sessionStorage<br/>optional COACH_PIN in Apps Script]
-  start --> seg[Toggle weightroom / conditioning]
+  start --> seg[Toggle weightroom / conditioning / practice]
   seg --> load[load]
 
   load --> csvCache{CSV cache?}

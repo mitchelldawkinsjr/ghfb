@@ -7,6 +7,11 @@
  */
 var SHEET_ID = "PASTE_SCHOOL_SPREADSHEET_ID_HERE";
 var SHEET_NAME = "2026 Summer WR & Conditioning";
+var PRACTICE_SPREADSHEET_ID = "1c5NqGj5b-7CgVY3UuOziaNgDJqDIo0J2j2HjV443HTU";
+var PRACTICE_SHEET_GID = 224955206;
+var PRACTICE_DATA_START_ROW = 5;
+var PRACTICE_DATA_END_ROW = 31;
+var PRACTICE_LABEL_COL = 3;
 var SUMMARY_HEADERS = [
   "Current Total",
   "Ironman %",
@@ -36,6 +41,14 @@ function doGet(e) {
         e.parameter.sessionType,
         e.parameter.pin
       );
+    } else if (action === "updatePracticeBlock") {
+      result = updatePracticeBlock(
+        e.parameter.pin,
+        e.parameter.startSheetRow,
+        e.parameter.endSheetRow,
+        e.parameter.label,
+        e.parameter.newEndSheetRow
+      );
     } else {
       result = { ok: false, error: "Unknown action: " + action };
     }
@@ -55,6 +68,17 @@ function doPost(e) {
     if (body.action === "toggleCheckIn") {
       return jsonOutput_(
         toggleCheckIn(body.sheetRow, body.sessionType, body.pin)
+      );
+    }
+    if (body.action === "updatePracticeBlock") {
+      return jsonOutput_(
+        updatePracticeBlock(
+          body.pin,
+          body.startSheetRow,
+          body.endSheetRow,
+          body.label,
+          body.newEndSheetRow
+        )
       );
     }
     return jsonOutput_({ ok: false, error: "Unknown action" });
@@ -166,8 +190,144 @@ function testSheetAccess() {
   var roster = getRoster_(sheet);
   var wrCol = findSessionColumn_(sheet, "weightroom");
   var condCol = findSessionColumn_(sheet, "conditioning");
+  var practiceCol = findSessionColumn_(sheet, "practice");
   Logger.log("OK: " + roster.length + " players on " + SHEET_NAME);
-  Logger.log("Today weightroom col: " + wrCol + ", conditioning col: " + condCol);
+  Logger.log(
+    "Today weightroom col: " +
+      wrCol +
+      ", conditioning col: " +
+      condCol +
+      ", practice col: " +
+      practiceCol
+  );
+}
+
+function testPracticeSheetAccess() {
+  var sheet = getPracticeSheet_();
+  var labels = readPracticeLabelColumn_(sheet);
+  var starts = findPracticeBlockStarts_(labels);
+  Logger.log("OK: practice tab " + sheet.getName() + ", " + starts.length + " blocks");
+}
+
+function getPracticeSheet_() {
+  if (!PRACTICE_SPREADSHEET_ID) {
+    throw new Error(
+      "Set PRACTICE_SPREADSHEET_ID in Code.gs (share the practice workbook with this account as Editor)."
+    );
+  }
+  var ss = SpreadsheetApp.openById(PRACTICE_SPREADSHEET_ID);
+  var sheets = ss.getSheets();
+  var i;
+  for (i = 0; i < sheets.length; i++) {
+    if (sheets[i].getSheetId() === PRACTICE_SHEET_GID) return sheets[i];
+  }
+  throw new Error("Practice schedule tab not found (gid=" + PRACTICE_SHEET_GID + ")");
+}
+
+function readPracticeLabelColumn_(sheet) {
+  return sheet
+    .getRange(
+      PRACTICE_DATA_START_ROW,
+      PRACTICE_LABEL_COL,
+      PRACTICE_DATA_END_ROW,
+      PRACTICE_LABEL_COL
+    )
+    .getValues();
+}
+
+function findPracticeBlockStarts_(labels) {
+  var starts = [];
+  var i;
+  for (i = 0; i < labels.length; i++) {
+    var value = String(labels[i][0] != null ? labels[i][0] : "").trim();
+    if (value) {
+      starts.push({
+        sheetRow: PRACTICE_DATA_START_ROW + i,
+        label: value,
+      });
+    }
+  }
+  return starts;
+}
+
+function findPracticeNextBlock_(labels, afterRow) {
+  var starts = findPracticeBlockStarts_(labels);
+  var i;
+  for (i = 0; i < starts.length; i++) {
+    if (starts[i].sheetRow > afterRow) return starts[i];
+  }
+  return null;
+}
+
+function updatePracticeBlock(pin, startSheetRow, endSheetRow, label, newEndSheetRow) {
+  verifyPin_(pin);
+  var sheet = getPracticeSheet_();
+  var startRow = Number(startSheetRow);
+  var endRow = Number(endSheetRow);
+  var newEnd =
+    newEndSheetRow != null && String(newEndSheetRow).trim() !== ""
+      ? Number(newEndSheetRow)
+      : endRow;
+  var labelText = label != null ? String(label) : "";
+
+  if (!startRow || startRow < PRACTICE_DATA_START_ROW || startRow > PRACTICE_DATA_END_ROW) {
+    throw new Error("Invalid block start row.");
+  }
+  if (!endRow || endRow < startRow || endRow > PRACTICE_DATA_END_ROW) {
+    throw new Error("Invalid block end row.");
+  }
+  if (!newEnd || newEnd < startRow || newEnd > PRACTICE_DATA_END_ROW) {
+    throw new Error("Invalid new end row.");
+  }
+
+  var labels = readPracticeLabelColumn_(sheet);
+  var starts = findPracticeBlockStarts_(labels);
+  var isStart = false;
+  var i;
+  for (i = 0; i < starts.length; i++) {
+    if (starts[i].sheetRow === startRow) {
+      isStart = true;
+      break;
+    }
+  }
+  if (!isStart) throw new Error("Start row is not a block header row.");
+
+  var nextBlock = findPracticeNextBlock_(labels, endRow);
+  var labelCol = PRACTICE_LABEL_COL;
+
+  if (newEnd > endRow && nextBlock && newEnd >= nextBlock.sheetRow) {
+    var afterNext = findPracticeNextBlock_(labels, nextBlock.sheetRow);
+    var nextBlockEnd = afterNext ? afterNext.sheetRow - 1 : PRACTICE_DATA_END_ROW;
+    if (newEnd < nextBlockEnd) {
+      sheet.getRange(newEnd + 1, labelCol).setValue(nextBlock.label);
+      sheet.getRange(nextBlock.sheetRow, labelCol).setValue("");
+    } else if (afterNext) {
+      sheet.getRange(newEnd + 1, labelCol).setValue(afterNext.label);
+      sheet.getRange(afterNext.sheetRow, labelCol).setValue("");
+      sheet.getRange(nextBlock.sheetRow, labelCol).setValue("");
+    } else {
+      sheet.getRange(nextBlock.sheetRow, labelCol).setValue("");
+    }
+  }
+
+  if (newEnd < endRow && nextBlock) {
+    sheet.getRange(newEnd + 1, labelCol).setValue(nextBlock.label);
+    if (nextBlock.sheetRow !== newEnd + 1) {
+      sheet.getRange(nextBlock.sheetRow, labelCol).setValue("");
+    }
+  }
+
+  sheet.getRange(startRow, labelCol).setValue(labelText);
+  for (i = startRow + 1; i <= newEnd; i++) {
+    sheet.getRange(i, labelCol).setValue("");
+  }
+
+  return {
+    ok: true,
+    startSheetRow: startRow,
+    endSheetRow: newEnd,
+    label: labelText,
+  };
 }
 
 function verifyPin_(pin) {
@@ -233,11 +393,44 @@ function getMarksForColumn_(sheet, col, roster) {
   return out;
 }
 
+function isPracticeHeader_(header) {
+  var text = headerToString_(header);
+  return /^P(\s+|\s*\d)/i.test(text);
+}
+
+function parsePracticeHeaderDate_(header) {
+  var text = headerToString_(header);
+  var direct = text.match(/^P\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*$/i);
+  if (direct) return parseHeaderDate_(direct[1]);
+  var embedded = text.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
+  if (embedded) return parseHeaderDate_(embedded[1]);
+  return null;
+}
+
+function findTodayPracticeColumn_(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var today = startOfDay_(new Date());
+  var c;
+
+  for (c = 0; c < headers.length; c++) {
+    var header = headerToString_(headers[c]);
+    if (!header) continue;
+    if (SUMMARY_HEADERS.indexOf(header) >= 0) break;
+    if (!isPracticeHeader_(header)) continue;
+
+    var dateVal = parsePracticeHeaderDate_(headers[c]);
+    if (dateVal && isSameDay_(dateVal, today)) return c + 1;
+  }
+  return null;
+}
+
 function findSessionColumn_(sheet, sessionType) {
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var today = startOfDay_(new Date());
   var type = String(sessionType != null ? sessionType : "weightroom").toLowerCase();
   var c;
+
+  if (type === "practice") return findTodayPracticeColumn_(sheet);
 
   for (c = 0; c < headers.length; c++) {
     var header = headerToString_(headers[c]);
@@ -298,6 +491,16 @@ function sessionNotScheduledMessage_(sessionType, todayLabel, sheet) {
 
   if (type === "weightroom") {
     return "No scheduled weight room session for today (" + label + "). " + addDayHint;
+  }
+
+  if (type === "practice") {
+    return (
+      "No practice column for today (" +
+      label +
+      "). Add a column labeled P " +
+      label +
+      " on the attendance sheet. Practice columns are tracked separately and do not affect ironmen."
+    );
   }
 
   return "No scheduled weight room or conditioning for today (" + label + "). " + addDayHint;

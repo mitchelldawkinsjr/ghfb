@@ -8,13 +8,17 @@
 | `check-in.html` | Coach check-in shell (loads `js/check-in.js`) |
 | `attendance-dashboard.html` | Attendance analytics (ES module) |
 | `schedule.html` | 2026 schedule image page |
+| `practice-schedule.html` | Practice timeline + countdown timer page |
 | `check-in-config.js` | Optional `GHFB_CHECKIN_SCRIPT_URL` override |
 | `js/check-in.js` | Coach check-in logic |
 | `js/hub-today.js` | Hub today strip |
+| `js/practice-schedule.js` | Practice timeline, countdown timer, coach edits |
 | `js/attendance-dashboard.js` | Dashboard entry module |
 | `shared/ghfb-csv.js` | CSV fetch, parse, sessionStorage cache |
 | `shared/ghfb-attendance.js` | Dates, columns, rolling stats, roster, at-risk helpers |
 | `shared/ghfb-lift-plan.js` | Daily lift plan CSV and today lookup |
+| `shared/ghfb-practice-schedule.js` | Practice schedule CSV parse, block collapse, now/next, edit helpers |
+| `shared/ghfb-coach-api.js` | Coach Apps Script GET helper (`/api/checkin`) |
 | `shared/ghfb-dom.js` | Formatting, `escapeHtml` |
 | `shared/theme.css` | Shared dashboard styles |
 | `scripts/coach-check-in/Code.gs` | Sheet read/write API |
@@ -42,9 +46,10 @@ Keep date-header parsing aligned when changing either side.
 
 | Layer | TTL | Used by |
 |-------|-----|---------|
-| nginx `proxy_cache` | 90s | `/api/attendance.csv`, `/api/lift-plan.csv` |
+| nginx `proxy_cache` | 90s | `/api/attendance.csv`, `/api/lift-plan.csv`, `/api/practice-schedule.csv` |
 | Browser CSV `sessionStorage` | 3 min | Check-in + dashboard (`clearCsvCache` on save) |
 | Browser lift plan cache | 5 min | Hub + check-in banner |
+| Browser practice schedule cache | 5 min | Hub + practice timeline page |
 | Check-in API `sessionStorage` | 45s | Per `sessionType` |
 | Service worker | Versioned precache | Hub shell only |
 

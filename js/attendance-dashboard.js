@@ -53,6 +53,16 @@ function buildRosterPieCharts(stats) {
     },
   ];
 
+  if (stats.practiceCols > 0) {
+    pies.push({
+      label: "at Practice",
+      pct: stats.practicePct,
+      attended: stats.practiceAttended,
+      color: "#b8d4a8",
+      sessions: stats.practiceCols,
+    });
+  }
+
   grid.innerHTML = pies
     .map((pie) => {
       const pctDisplay = (pie.pct * 100).toFixed(2);
@@ -174,6 +184,7 @@ function applySummaryToDom(summary) {
     completedTotalPossible,
     lastSevenIndexes,
     rosterParticipation,
+    practiceParticipation,
   } = summary;
 
   const ironLabel = document.getElementById("ironMenLabel");
@@ -191,10 +202,16 @@ function applySummaryToDom(summary) {
     formulaNote.innerHTML =
       `As of <strong>${todayLabel}</strong>: rolling % = <strong>X</strong> marks ÷ <strong>${totalPossible}</strong> ` +
       `session slots (weightroom dates on/before today + paired <strong>C</strong>; future dates excluded). ` +
+      `<strong>P</strong> practice columns are tracked separately and do not affect ironmen. ` +
       `Leader example: ${top ? `${top.marks}/${totalPossible} = ${formatPct(top.rollingRate)}` : "—"}.`;
   }
 
-  buildRosterPieCharts(rosterParticipation);
+  buildRosterPieCharts({
+    ...rosterParticipation,
+    practicePct: practiceParticipation?.practicePct ?? 0,
+    practiceAttended: practiceParticipation?.practiceAttended ?? 0,
+    practiceCols: practiceParticipation?.practiceCols ?? 0,
+  });
   buildAttentionPanel(summary);
 
   updateSummaryBoxes({
@@ -247,16 +264,21 @@ function buildTable(rows, ctx) {
       } else if (isHeader) {
         if (kind === "weightroom") cellEl.classList.add("col-weightroom");
         if (kind === "conditioning") cellEl.classList.add("col-conditioning");
+        if (kind === "practice") cellEl.classList.add("col-practice");
       } else {
         const cellValue = String(cell ?? "").trim().toUpperCase();
         if (cellValue === "X") {
-          cellEl.classList.add(kind === "conditioning" ? "col-conditioning" : "col-weightroom");
+          if (kind === "conditioning") cellEl.classList.add("col-conditioning");
+          else if (kind === "practice") cellEl.classList.add("col-practice");
+          else cellEl.classList.add("col-weightroom");
         } else if (validSet.has(colIndex)) {
           cellEl.classList.add(rowMissed24 ? "col-missed24" : "col-no-attendance");
         } else if (kind === "weightroom") {
           cellEl.classList.add("col-weightroom");
         } else if (kind === "conditioning") {
           cellEl.classList.add("col-conditioning");
+        } else if (kind === "practice") {
+          cellEl.classList.add("col-practice");
         }
       }
 

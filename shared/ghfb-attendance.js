@@ -52,15 +52,39 @@ export function getTodayLabel() {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+/** Practice day column, e.g. "P 6/9", "P 6/11", "P6/9". Not counted toward ironmen. */
+export function isPracticeHeader(header) {
+  const text = String(header ?? "").trim();
+  return /^P(\s+|\s*\d)/i.test(text);
+}
+
+/** Date embedded in a practice header (P 6/9 → June 9 this year). */
+export function parsePracticeHeaderDate(header) {
+  const text = String(header ?? "").trim();
+  const direct = text.match(/^P\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*$/i);
+  if (direct) return parseHeaderDate(direct[1]);
+  const embedded = text.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
+  if (embedded) return parseHeaderDate(embedded[1]);
+  return null;
+}
+
 export function getColumnKind(header) {
   const text = String(header ?? "").trim();
   if (text.toUpperCase() === "C") return "conditioning";
+  if (isPracticeHeader(text)) return "practice";
   if (parseHeaderDate(text)) return "weightroom";
   return "other";
 }
 
 export function formatHeaderLabel(header) {
   const text = String(header ?? "").trim();
+  if (isPracticeHeader(text)) {
+    const dateVal = parsePracticeHeaderDate(text);
+    if (dateVal) {
+      return `Practice ${dateVal.getMonth() + 1}/${dateVal.getDate()}/${dateVal.getFullYear()}`;
+    }
+    return text;
+  }
   const dateVal = parseHeaderDate(text);
   if (dateVal) {
     return `${dateVal.getMonth() + 1}/${dateVal.getDate()}/${dateVal.getFullYear()}`;
@@ -99,10 +123,53 @@ export function getValidAttendanceIndexes(
   return indexes;
 }
 
-/** Column index for today's weightroom or conditioning session. */
-export function findSessionColumnIndex(headerRow, sessionType) {
+/**
+ * Practice columns (P 6/9, …) on or before cutoff. Excluded from ironmen / momentum.
+ */
+export function getValidPracticeIndexes(
+  headers,
+  attendanceStartIdx = ATTENDANCE_START_IDX,
+  throughDate = getToday()
+) {
+  const indexes = [];
+
+  for (let col = attendanceStartIdx; col < headers.length; col++) {
+    const header = String(headers[col] ?? "").trim();
+    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (!isPracticeHeader(header)) continue;
+
+    const dateVal = parsePracticeHeaderDate(header);
+    if (dateVal && dateVal > throughDate) continue;
+
+    indexes.push(col);
+  }
+
+  return indexes;
+}
+
+/** Today's practice column (P + today's date), if present. */
+export function findTodayPracticeColumnIndex(headerRow) {
   const today = getToday();
+
+  for (let col = ATTENDANCE_START_IDX; col < headerRow.length; col++) {
+    const header = String(headerRow[col] ?? "").trim();
+    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (!isPracticeHeader(header)) continue;
+
+    const dateVal = parsePracticeHeaderDate(header);
+    if (!dateVal || dateVal.getTime() !== today.getTime()) continue;
+    return col;
+  }
+
+  return null;
+}
+
+/** Column index for today's weightroom, conditioning, or practice session. */
+export function findSessionColumnIndex(headerRow, sessionType) {
   const type = String(sessionType).toLowerCase();
+  if (type === "practice") return findTodayPracticeColumnIndex(headerRow);
+
+  const today = getToday();
 
   for (let col = ATTENDANCE_START_IDX; col < headerRow.length; col++) {
     const header = String(headerRow[col] ?? "").trim();
@@ -155,6 +222,14 @@ export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow
 
   if (type === "weightroom") {
     return `No scheduled weight room session for today (${label}). ${addDayHint}`;
+  }
+
+  if (type === "practice") {
+    return (
+      `No practice column for today (${label}). ` +
+      `Add a column labeled P ${label} on the attendance sheet. ` +
+      `Practice columns are tracked separately and do not affect ironmen.`
+    );
   }
 
   return `No scheduled weight room or conditioning for today (${label}). ${addDayHint}`;
@@ -267,6 +342,23 @@ export function computeRosterParticipation(dataRows, headerRow, validIndexes) {
   };
 }
 
+/** Roster marked at least once in an eligible practice column (P headers). */
+export function computePracticeParticipation(dataRows, headerRow, practiceIndexes) {
+  const rosterSize = dataRows.length;
+  let practiceAttended = 0;
+
+  for (const row of dataRows) {
+    if (practiceIndexes.some((idx) => cellIsMark(row, idx))) practiceAttended += 1;
+  }
+
+  return {
+    rosterSize,
+    practiceAttended,
+    practicePct: rosterSize > 0 ? practiceAttended / rosterSize : 0,
+    practiceCols: practiceIndexes.length,
+  };
+}
+
 export const MISSED_24_THRESHOLD = 24;
 export const NEAR_IRONMAN_MARGIN = 0.08;
 export const AT_RISK_MAX = 8;
@@ -276,6 +368,7 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
   const headerRow = rows[0] || [];
   const dataRows = getDataRows(rows);
   const validIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx);
+  const practiceIndexes = getValidPracticeIndexes(headerRow, attendanceStartIdx);
   const completedIndexes = validIndexes;
   const lastSevenIndexes = completedIndexes.slice(-7);
   const sheetMeta = getSheetMeta(headerRow, dataRows);
@@ -310,12 +403,18 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
   const momentumRate = momentumPossible > 0 ? momentumMarks / momentumPossible : 0;
 
   const rosterParticipation = computeRosterParticipation(dataRows, headerRow, validIndexes);
+  const practiceParticipation = computePracticeParticipation(
+    dataRows,
+    headerRow,
+    practiceIndexes
+  );
 
   return {
     playerTotals,
     dataRows,
     headerRow,
     validIndexes,
+    practiceIndexes,
     completedIndexes,
     lastSevenIndexes,
     ironMen,
@@ -328,6 +427,7 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
     completedTotalPossible,
     todayLabel,
     rosterParticipation,
+    practiceParticipation,
   };
 }
 
@@ -335,10 +435,12 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
 export function getTodaySessionStatus(headerRow, dataRows) {
   const weightroomCol = findSessionColumnIndex(headerRow, "weightroom");
   const conditioningCol = findSessionColumnIndex(headerRow, "conditioning");
+  const practiceCol = findTodayPracticeColumnIndex(headerRow);
   const dateCol = findTodayDateColumnIndex(headerRow);
   const total = dataRows?.length ?? 0;
   let wrChecked = 0;
   let condChecked = 0;
+  let practiceChecked = 0;
 
   if (dataRows?.length) {
     if (weightroomCol != null) {
@@ -347,14 +449,19 @@ export function getTodaySessionStatus(headerRow, dataRows) {
     if (conditioningCol != null) {
       condChecked = dataRows.filter((row) => cellIsMark(row, conditioningCol)).length;
     }
+    if (practiceCol != null) {
+      practiceChecked = dataRows.filter((row) => cellIsMark(row, practiceCol)).length;
+    }
   }
 
   return {
     weightroomCol,
     conditioningCol,
+    practiceCol,
     dateCol,
     wrChecked,
     condChecked,
+    practiceChecked,
     total,
   };
 }
