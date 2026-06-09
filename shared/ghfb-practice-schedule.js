@@ -178,9 +178,12 @@ function forwardFillLabels(dataRows) {
 }
 
 /**
- * Collapse 5-minute CSV rows into merged timeline blocks.
+ * Collapse CSV rows into merged timeline blocks.
  * A new block starts on each row with an explicit label in column C;
- * blank cells below (merged in the sheet) extend the current block.
+ * blank rows extend the current block ONLY when they are consecutive
+ * (gap ≤ PRACTICE_SLOT_MINUTES), matching merged-cell runs in the sheet.
+ * A blank row that is more than one slot away from the previous row is
+ * treated as a gap/transition and closes the current block at its start time.
  */
 export function collapsePracticeBlocks(rows) {
   const dataRows = (rows || []).slice(PRACTICE_HEADER_ROWS);
@@ -189,13 +192,19 @@ export function collapsePracticeBlocks(rows) {
   const filled = forwardFillLabels(dataRows);
   const blocks = [];
   let current = null;
+  let prevStartMinutes = null;
 
   for (const slot of filled) {
     const startMinutes = parsePracticeTime(slot.timeText);
     if (startMinutes == null) continue;
 
     if (slot.rawLabel) {
-      if (current) blocks.push(current);
+      // Close the previous block, ending exactly where this one starts.
+      if (current) {
+        current.endMinutes = startMinutes;
+        current.endTimeText = formatPracticeClock(startMinutes);
+        blocks.push(current);
+      }
       current = {
         label: slot.label,
         title: blockDisplayTitle(slot.label),
@@ -207,15 +216,34 @@ export function collapsePracticeBlocks(rows) {
         endSheetRow: slot.sheetRow,
         slotCount: 1,
       };
+      prevStartMinutes = startMinutes;
       continue;
     }
 
-    if (!current) continue;
+    // Blank row — decide whether it continues the current block or is a gap.
+    const gap =
+      prevStartMinutes != null
+        ? startMinutes - prevStartMinutes
+        : PRACTICE_SLOT_MINUTES;
 
+    if (!current || gap > PRACTICE_SLOT_MINUTES) {
+      // Gap row: close the current block ending at this row's start time.
+      if (current) {
+        current.endMinutes = startMinutes;
+        current.endTimeText = formatPracticeClock(startMinutes);
+        blocks.push(current);
+        current = null;
+      }
+      prevStartMinutes = startMinutes;
+      continue;
+    }
+
+    // True continuation (merged cell run in the sheet).
     current.endMinutes = startMinutes + PRACTICE_SLOT_MINUTES;
     current.endTimeText = formatPracticeClock(current.endMinutes);
     current.endSheetRow = slot.sheetRow;
     current.slotCount += 1;
+    prevStartMinutes = startMinutes;
   }
 
   if (current) blocks.push(current);

@@ -24,6 +24,7 @@ const rowUiState = new Map();
 let sessionType = "weightroom";
 let players = [];
 let todayLabel = "";
+let loadGeneration = 0;
 
 const statusEl = document.getElementById("status");
 const gridEl = document.getElementById("grid");
@@ -407,7 +408,12 @@ function toggle(sheetRow) {
   enqueueSave(sheetRow);
 }
 
+function isStaleLoad(generation) {
+  return generation !== loadGeneration;
+}
+
 async function load() {
+  const generation = ++loadGeneration;
   setStatus("Loading roster…", false);
   gridEl.innerHTML = "";
   buttonByRow.clear();
@@ -434,6 +440,7 @@ async function load() {
       fetchCsvRows(),
       apiGet("getCheckInData", { sessionType, pin: getPin() }),
     ]);
+    if (isStaleLoad(generation)) return;
 
     const headerRow = rows?.[0] || [];
     loadTodayBanner(headerRow);
@@ -470,6 +477,7 @@ async function load() {
       return;
     }
 
+    if (isStaleLoad(generation)) return;
     syncing = false;
     if (rows) {
       const shell = buildFromCsv(rows, sessionType);
@@ -479,6 +487,7 @@ async function load() {
       setStatus(apiData.error, true);
     }
   } catch (err) {
+    if (isStaleLoad(generation)) return;
     const msg = err.message || String(err);
     if (/pin/i.test(msg)) {
       setStatus(msg, true);

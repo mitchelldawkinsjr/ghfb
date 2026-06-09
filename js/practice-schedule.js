@@ -260,7 +260,7 @@ function createPracticeTimer(options) {
     const seg = segments[currentSeg];
 
     let labelText = seg?.name || "—";
-    if (phase === "waiting") labelText = `Starting soon · ${labelText}`;
+    if (phase === "waiting") labelText = `Practice starts at ${seg?.timeText ?? "—"}`;
     if (phase === "done") labelText = "Practice complete";
 
     if (labelEl) labelEl.textContent = labelText;
@@ -269,7 +269,7 @@ function createPracticeTimer(options) {
         phase === "done"
           ? ""
           : phase === "waiting"
-            ? `Begins at ${seg.timeText}`
+            ? `Up first: ${seg?.name ?? ""}`
             : seg.detail || "";
     }
 
@@ -308,7 +308,7 @@ function createPracticeTimer(options) {
       if (phase === "done") {
         nextEl.textContent = "—";
       } else if (phase === "waiting") {
-        nextEl.textContent = `${seg.name} · ${seg.timeText}`;
+        nextEl.textContent = `${seg.name} begins at ${seg.timeText}`;
       } else if (nextSeg) {
         nextEl.textContent = `${nextSeg.name} · ${nextSeg.timeText}`;
       } else {
