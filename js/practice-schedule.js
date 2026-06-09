@@ -1,7 +1,6 @@
 import { coachApiGet } from "/shared/ghfb-coach-api.js";
 import {
   PRACTICE_SHEET_EDIT_URL,
-  PRACTICE_SLOT_MINUTES,
   clearPracticeScheduleCache,
   describePracticeForNow,
   fetchPracticeScheduleRows,
@@ -24,7 +23,9 @@ function blocksToTimerSegments(blocks) {
       blockIndex: index,
       name: block.title,
       detail: notes,
-      duration: block.slotCount * PRACTICE_SLOT_MINUTES * 60,
+      // Use the actual time range rather than slotCount × slot size so that
+      // gap rows (which close a block early) don't shorten the duration.
+      duration: (block.endMinutes - block.startMinutes) * 60,
       timeText: formatPracticeClock(block.startMinutes),
       startMinutes: block.startMinutes,
       endMinutes: block.endMinutes,
@@ -446,13 +447,11 @@ function createPracticeTimer(options) {
     running = false;
     hasAnnouncedStart = false;
     lastBeepSecond = -1;
-    if (wallClockEnabled) syncFromWallClock();
-    else if (segments.length) {
-      currentSeg = 0;
-      timeLeft = segments[0].duration;
-      phase = "live";
-      notifySegmentChange();
-    }
+    // Always force wall-clock sync so the button reliably counts down
+    // to practice start regardless of how wallClockEnabled was set.
+    wallClockEnabled = true;
+    syncFromWallClock();
+    startInterval();
     updateUI();
   });
 
@@ -557,7 +556,7 @@ function updateTimelineLive(currentSummary) {
   const nowMinutes = getEasternTotalMinutes(new Date());
   const { blocks, isToday, window } = currentSummary;
   const totalHeight = blocks.reduce(
-    (sum, block) => sum + block.slotCount * PRACTICE_SLOT_MINUTES * MINUTE_HEIGHT_PX,
+    (sum, block) => sum + (block.endMinutes - block.startMinutes) * MINUTE_HEIGHT_PX,
     0
   );
 
@@ -736,7 +735,7 @@ function renderTimeline(currentSummary) {
       ? (nowMinutes - currentSummary.window.startMinutes) * MINUTE_HEIGHT_PX
       : null;
   const totalHeight = blocks.reduce(
-    (sum, block) => sum + block.slotCount * PRACTICE_SLOT_MINUTES * MINUTE_HEIGHT_PX,
+    (sum, block) => sum + (block.endMinutes - block.startMinutes) * MINUTE_HEIGHT_PX,
     0
   );
 
@@ -744,7 +743,8 @@ function renderTimeline(currentSummary) {
 
   const blocksHtml = blocks
     .map((block, index) => {
-      const height = block.slotCount * PRACTICE_SLOT_MINUTES * MINUTE_HEIGHT_PX;
+      const durationMin = block.endMinutes - block.startMinutes;
+      const height = durationMin * MINUTE_HEIGHT_PX;
       const isCurrent =
         isToday && nowMinutes >= block.startMinutes && nowMinutes < block.endMinutes;
       const isTimerActive = index === timerSeg;
@@ -767,7 +767,7 @@ function renderTimeline(currentSummary) {
         `<h2>${escapeHtml(block.title)}</h2>` +
         editBtn +
         `</div>` +
-        `<p class="timeline-block-duration">${block.slotCount * PRACTICE_SLOT_MINUTES} min · sheet rows ${block.startSheetRow}–${block.endSheetRow}</p>` +
+        `<p class="timeline-block-duration">${durationMin} min · sheet rows ${block.startSheetRow}–${block.endSheetRow}</p>` +
         renderBlockDetails(block.label) +
         `</div>` +
         `</article>`
