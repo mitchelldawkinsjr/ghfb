@@ -219,20 +219,30 @@ export function collapsePracticeBlocks(rows) {
   let current = null;
   let prevRowMinutes = null;
   let pendingStart = null;
+  let droppedStartSheetRow = null;
 
   function pushCurrent() {
     if (!current) return;
-    blocks.push(current);
+    // Skip 0-minute markers (e.g. "Start" on the first slot row).
+    if (current.endMinutes > current.startMinutes) {
+      blocks.push(current);
+    } else {
+      droppedStartSheetRow = current.startSheetRow;
+    }
     current = null;
   }
 
   function blockStartFor(rowMinutes) {
     if (pendingStart != null) return pendingStart;
+    // Use the in-progress block before pushCurrent(); it is not in `blocks` yet.
+    if (current) return current.endMinutes;
     if (blocks.length) return blocks[blocks.length - 1].endMinutes;
     return rowMinutes;
   }
 
   function openBlock(slot, rowMinutes, startMinutes) {
+    const startSheetRow = droppedStartSheetRow ?? slot.sheetRow;
+    droppedStartSheetRow = null;
     current = {
       label: slot.label,
       title: blockDisplayTitle(slot.label),
@@ -240,7 +250,7 @@ export function collapsePracticeBlocks(rows) {
       endMinutes: rowMinutes,
       startTimeText: formatPracticeClock(startMinutes),
       endTimeText: formatPracticeClock(rowMinutes),
-      startSheetRow: slot.sheetRow,
+      startSheetRow,
       endSheetRow: slot.sheetRow,
       slotCount: 1,
     };
