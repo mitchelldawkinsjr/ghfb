@@ -7,7 +7,7 @@ import {
   getSessionNotScheduledMessage,
   describeTodaySessionStatus,
 } from "/shared/ghfb-attendance.js";
-import { fetchLiftPlanRows, getTodayLiftPlan } from "/shared/ghfb-lift-plan.js";
+import { fetchLiftPlanRows, getTodayLiftPlan, getTodayConditioningPlan } from "/shared/ghfb-lift-plan.js";
 import { escapeHtml } from "/shared/ghfb-dom.js";
 
 const CHECKIN_API = window.GHFB_CHECKIN_API || "/api/checkin";
@@ -73,11 +73,23 @@ function refreshStatusLine(isError = false, errorMsg = "") {
   }
 }
 
-function renderTodayBanner(headerRow, liftPlan, liftError) {
+function renderTodayBanner(headerRow, liftPlan, condPlan, liftError, type = sessionType) {
   if (!todayBanner) return;
 
   const parts = [];
-  if (liftError) {
+  if (type === "conditioning") {
+    if (liftError) {
+      parts.push(`Conditioning plan unavailable (${liftError}).`);
+    } else if (!condPlan) {
+      parts.push("No conditioning row for today in Daily Lift Plan tab.");
+    } else {
+      const condText = condPlan.url
+        ? `<a href="${escapeHtml(condPlan.url)}">${escapeHtml(condPlan.label)}</a>`
+        : escapeHtml(condPlan.label);
+      parts.push(`Today's conditioning: ${condText}`);
+      if (condPlan.coach) parts.push(`Coach: ${escapeHtml(condPlan.coach)}`);
+    }
+  } else if (liftError) {
     parts.push(`Lift plan unavailable (${liftError}).`);
   } else if (!liftPlan) {
     parts.push("No lift row for today in Daily Lift Plan tab.");
@@ -104,12 +116,21 @@ function renderTodayBanner(headerRow, liftPlan, liftError) {
   todayBanner.hidden = false;
 }
 
-async function loadTodayBanner(headerRow) {
+async function loadTodayBanner(headerRow, generation = loadGeneration) {
+  const type = sessionType;
   try {
     const liftRows = await fetchLiftPlanRows();
-    renderTodayBanner(headerRow, getTodayLiftPlan(liftRows), null);
+    if (generation !== loadGeneration || type !== sessionType) return;
+    renderTodayBanner(
+      headerRow,
+      getTodayLiftPlan(liftRows),
+      getTodayConditioningPlan(liftRows),
+      null,
+      type
+    );
   } catch {
-    renderTodayBanner(headerRow, null, "publish Daily Lift Plan CSV");
+    if (generation !== loadGeneration || type !== sessionType) return;
+    renderTodayBanner(headerRow, null, null, "publish Daily Lift Plan CSV", type);
   }
 }
 
@@ -431,7 +452,7 @@ async function load() {
     const cachedRows = parseCSV(cachedCsvText);
     const shell = buildFromCsv(cachedRows, sessionType);
     if (shell.ok) applyData(shell);
-    loadTodayBanner(cachedRows[0] || []);
+    loadTodayBanner(cachedRows[0] || [], generation);
   }
 
   syncing = true;
@@ -443,7 +464,7 @@ async function load() {
     if (isStaleLoad(generation)) return;
 
     const headerRow = rows?.[0] || [];
-    loadTodayBanner(headerRow);
+    loadTodayBanner(headerRow, generation);
 
     if (rows) {
       const shell = buildFromCsv(rows, sessionType);
@@ -499,7 +520,7 @@ async function load() {
     try {
       const rows = await fetchCsvRows();
       const shell = buildFromCsv(rows, sessionType);
-      loadTodayBanner(rows[0] || []);
+      loadTodayBanner(rows[0] || [], generation);
       if (shell.ok) {
         applyData({ ...shell, viewOnly: true });
         return;

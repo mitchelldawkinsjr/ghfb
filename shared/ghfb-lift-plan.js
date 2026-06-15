@@ -26,7 +26,7 @@ function findColumnIndex(headers, names) {
 
 /**
  * Read conditioning columns from the same Daily Lift Plan CSV.
- * Expected extra columns: CondLabel, CondPhase, CondSession, CondLink.
+ * Expected columns: Date, Coach, and optional CondLabel, CondPhase, CondSession, CondLink.
  */
 export function getTodayConditioningPlan(rows) {
   if (!rows?.length || rows.length < 2) return null;
@@ -39,8 +39,7 @@ export function getTodayConditioningPlan(rows) {
   const phaseCol = findColumnIndex(headers, ["condphase", "cond phase"]);
   const sessionCol = findColumnIndex(headers, ["condsession", "cond session"]);
   const linkCol = findColumnIndex(headers, ["condlink", "cond link"]);
-
-  if (labelCol < 0 && phaseCol < 0 && sessionCol < 0) return null;
+  const coachCol = findColumnIndex(headers, ["coach"]);
 
   const today = getToday();
 
@@ -53,15 +52,17 @@ export function getTodayConditioningPlan(rows) {
     const phase = phaseCol >= 0 ? String(row[phaseCol] ?? "").trim() : "";
     const session = sessionCol >= 0 ? String(row[sessionCol] ?? "").trim() : "";
     const customUrl = linkCol >= 0 ? String(row[linkCol] ?? "").trim() : "";
+    const coach = coachCol >= 0 ? String(row[coachCol] ?? "").trim() : "";
 
-    if (!label && !phase && !session) return null;
+    if (!label && !phase && !session && !coach) return null;
 
-    const displayLabel = label || (phase && session ? `${phase} · ${session}` : "");
+    const displayLabel = label || (phase && session ? `${phase} · ${session}` : "") || "Conditioning";
     return {
-      label: displayLabel || "Conditioning scheduled",
+      label: displayLabel,
       phase,
       session,
-      url: customUrl || buildLiftUrl(phase, session),
+      coach,
+      url: customUrl || (phase && session ? buildLiftUrl(phase, session) : null),
       off: false,
     };
   }

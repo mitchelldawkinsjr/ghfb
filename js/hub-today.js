@@ -59,7 +59,8 @@ function renderConditioningRow(plan) {
   const link = plan.url
     ? `<a href="${escapeHtml(plan.url)}">${escapeHtml(plan.label)}</a>`
     : escapeHtml(plan.label);
-  return renderRow("Conditioning", link);
+  const note = plan.coach ? `Coach: ${plan.coach}` : "";
+  return renderRow("Conditioning", link, note);
 }
 
 function renderPracticeRow(summary, practiceError) {

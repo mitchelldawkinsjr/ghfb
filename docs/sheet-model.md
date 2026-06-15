@@ -93,11 +93,16 @@ The hub today strip and coach check-in banner read **today’s lift** from a sep
 | **Session** | For lift days | gh-lift session slug (e.g. `w3-lift-a`, `w4-lift-b`) |
 | **Notes** | No | Optional (e.g. `Conditioning only`) |
 | **LiftLink** | No | Optional full URL override if hash links are not set up yet |
+| **CondLabel** | For conditioning | Display text on hub/check-in (e.g. `Monday — Tempo Runs`) |
+| **CondPhase** / **CondSession** | For conditioning | gh-lift slugs for the conditioning workout |
+| **CondLink** | No | Optional URL override for conditioning |
+| **Coach** | No | Conditioning coach for that date; shown next to CondLabel on hub and check-in |
 
 **Rules:**
 
 - One row per calendar day you want to show on the hub.
 - Leave **Phase** and **Session** empty (or set **Label** to `Off`) for non-lift days.
+- For conditioning days, set **CondLabel** (or leave blank for default “Conditioning”) and **Coach**; **CondPhase** / **CondSession** are optional for gh-lift links.
 - ghfb builds the default link as `/lift/#/{phase}/{session}` when Phase and Session are set (e.g. `#/phase-2/w3-lift-a`, `#/phase-1/day-a`). gh-lift also accepts legacy slugs like `lower-a` for the same MWF session. Run `node tools/print-route-slugs.mjs` in the **gh-lift** repo for in-app slugs. Phase 5 has two blocks: use `phase-5` or `phase-5-21-22` for wks 21–22, and `phase-5-23-24` for wks 23–24.
 
 ### Publish the lift plan tab
