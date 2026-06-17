@@ -39,13 +39,6 @@ export function getToday() {
   return today;
 }
 
-/** Calendar day before today (local), midnight. */
-export function getYesterday() {
-  const yesterday = getToday();
-  yesterday.setDate(yesterday.getDate() - 1);
-  return yesterday;
-}
-
 /** M/D label for today's session column (matches sheet headers). */
 export function getTodayLabel() {
   const d = getToday();
@@ -235,25 +228,15 @@ export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow
   return `No scheduled weight room or conditioning for today (${label}). ${addDayHint}`;
 }
 
-export function getSheetMeta(headerRow, dataRows) {
-  const col = (name) => headerRow.findIndex((h) => String(h ?? "").trim() === name);
-  const iSessions = col("# of sessions this summer");
-  const iRequired = col("% required for ironman");
+function getIronMenThresholdRate(headerRow, dataRows) {
   const sample = dataRows[0] || [];
-
-  let summerSessions = 0;
-  if (iSessions >= 0 && sample[iSessions]) {
-    summerSessions = Number(String(sample[iSessions]).trim());
-  }
-
-  let ironMenThresholdRate = 35 / 42;
+  const iRequired = headerRow.findIndex((h) => String(h ?? "").trim() === "% required for ironman");
+  let rate = 35 / 42;
   if (iRequired >= 0 && sample[iRequired]) {
-    const text = String(sample[iRequired]).trim().replace("%", "");
-    const pct = Number(text);
-    if (!Number.isNaN(pct)) ironMenThresholdRate = pct / 100;
+    const pct = Number(String(sample[iRequired]).trim().replace("%", ""));
+    if (!Number.isNaN(pct)) rate = pct / 100;
   }
-
-  return { summerSessions, ironMenThresholdRate, iSessions, iRequired };
+  return rate;
 }
 
 export function computeRollingStats(row, validIndexes) {
@@ -369,10 +352,8 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
   const dataRows = getDataRows(rows);
   const validIndexes = getValidAttendanceIndexes(headerRow, attendanceStartIdx);
   const practiceIndexes = getValidPracticeIndexes(headerRow, attendanceStartIdx);
-  const completedIndexes = validIndexes;
-  const lastSevenIndexes = completedIndexes.slice(-7);
-  const sheetMeta = getSheetMeta(headerRow, dataRows);
-  const ironMenThresholdRate = sheetMeta.ironMenThresholdRate;
+  const lastSevenIndexes = validIndexes.slice(-7);
+  const ironMenThresholdRate = getIronMenThresholdRate(headerRow, dataRows);
   const todayLabel = getTodayLabel();
 
   const playerTotals = dataRows.map((row) => {
@@ -382,12 +363,11 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
   });
 
   const totalPossible = validIndexes.length;
-  const completedTotalPossible = completedIndexes.length;
   const top = [...playerTotals].sort((a, b) => b.rollingRate - a.rollingRate)[0];
   const ironMen = dataRows
     .map((row) => {
       const name = getPlayerDisplayName(row);
-      return { name, ...computeRollingStats(row, completedIndexes) };
+      return { name, ...computeRollingStats(row, validIndexes) };
     })
     .filter(
       (p) => p.totalPossible > 0 && p.rollingRate >= ironMenThresholdRate
@@ -415,7 +395,6 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
     headerRow,
     validIndexes,
     practiceIndexes,
-    completedIndexes,
     lastSevenIndexes,
     ironMen,
     ironMenThresholdRate,
@@ -424,45 +403,9 @@ export function buildAttendanceSummary(rows, attendanceStartIdx = ATTENDANCE_STA
     momentumPossible,
     top,
     totalPossible,
-    completedTotalPossible,
     todayLabel,
     rosterParticipation,
     practiceParticipation,
-  };
-}
-
-/** Today's weight room / conditioning column setup and check-in counts. */
-export function getTodaySessionStatus(headerRow, dataRows) {
-  const weightroomCol = findSessionColumnIndex(headerRow, "weightroom");
-  const conditioningCol = findSessionColumnIndex(headerRow, "conditioning");
-  const practiceCol = findTodayPracticeColumnIndex(headerRow);
-  const dateCol = findTodayDateColumnIndex(headerRow);
-  const total = dataRows?.length ?? 0;
-  let wrChecked = 0;
-  let condChecked = 0;
-  let practiceChecked = 0;
-
-  if (dataRows?.length) {
-    if (weightroomCol != null) {
-      wrChecked = dataRows.filter((row) => cellIsMark(row, weightroomCol)).length;
-    }
-    if (conditioningCol != null) {
-      condChecked = dataRows.filter((row) => cellIsMark(row, conditioningCol)).length;
-    }
-    if (practiceCol != null) {
-      practiceChecked = dataRows.filter((row) => cellIsMark(row, practiceCol)).length;
-    }
-  }
-
-  return {
-    weightroomCol,
-    conditioningCol,
-    practiceCol,
-    dateCol,
-    wrChecked,
-    condChecked,
-    practiceChecked,
-    total,
   };
 }
 
@@ -547,7 +490,6 @@ export function computeAtRiskPlayers(ctx) {
 /** Human-readable attendance column status for hub/check-in banners. */
 export function describeTodaySessionStatus(headerRow) {
   const todayLabel = getTodayLabel();
-  const dateCol = findTodayDateColumnIndex(headerRow);
   const wrCol = findSessionColumnIndex(headerRow, "weightroom");
   const condCol = findSessionColumnIndex(headerRow, "conditioning");
 

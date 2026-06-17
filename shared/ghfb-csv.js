@@ -42,36 +42,37 @@ export function parseCSV(text) {
   return rows;
 }
 
-export function readCsvCache() {
+export function readTimedCache(key, ttlMs) {
   try {
-    const raw = sessionStorage.getItem(CSV_CACHE_KEY);
+    const raw = sessionStorage.getItem(key);
     if (!raw) return null;
     const { savedAt, csv } = JSON.parse(raw);
-    if (!csv || Date.now() - savedAt >= CSV_CACHE_TTL_MS) return null;
+    if (!csv || Date.now() - savedAt >= ttlMs) return null;
     return csv;
   } catch {
     return null;
   }
 }
 
-export function writeCsvCache(csv) {
+export function writeTimedCache(key, csv) {
   try {
-    sessionStorage.setItem(
-      CSV_CACHE_KEY,
-      JSON.stringify({ savedAt: Date.now(), csv })
-    );
+    sessionStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), csv }));
   } catch {
     /* ignore quota */
   }
 }
 
-export function clearCsvCache() {
+export function clearTimedCache(key) {
   try {
-    sessionStorage.removeItem(CSV_CACHE_KEY);
+    sessionStorage.removeItem(key);
   } catch {
     /* ignore */
   }
 }
+
+export const readCsvCache = () => readTimedCache(CSV_CACHE_KEY, CSV_CACHE_TTL_MS);
+export const writeCsvCache = (csv) => writeTimedCache(CSV_CACHE_KEY, csv);
+export const clearCsvCache = () => clearTimedCache(CSV_CACHE_KEY);
 
 export function fetchCsvText() {
   return fetch(CSV_URL, { cache: "no-store" }).then((r) => {
@@ -89,6 +90,3 @@ export async function fetchCsvRows() {
   return parseCSV(text);
 }
 
-export function filterNonEmptyRows(rows) {
-  return rows.filter((r) => r.some((c) => c !== ""));
-}

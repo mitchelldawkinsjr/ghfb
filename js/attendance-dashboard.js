@@ -4,7 +4,6 @@ import {
   writeCsvCache,
   fetchCsvText,
   clearCsvCache,
-  filterNonEmptyRows,
 } from "/shared/ghfb-csv.js";
 import {
   ATTENDANCE_START_IDX,
@@ -181,7 +180,6 @@ function applySummaryToDom(summary) {
     momentumPossible,
     top,
     totalPossible,
-    completedTotalPossible,
     lastSevenIndexes,
     rosterParticipation,
     practiceParticipation,
@@ -223,8 +221,8 @@ function applySummaryToDom(summary) {
     ironMen,
     ironMenEmptyMessage: ironMen.length
       ? ""
-      : completedTotalPossible > 0
-        ? `No players at ${formatPct(ironMenThresholdRate)} yet (${completedTotalPossible} sessions through today)`
+      : totalPossible > 0
+        ? `No players at ${formatPct(ironMenThresholdRate)} yet (${totalPossible} sessions through today)`
         : "No completed sessions yet for ironmen",
     momentumPct: momentumPossible > 0 ? formatPct(momentumRate) : "—",
     momentumMeta:
@@ -311,7 +309,7 @@ function buildBarChart(playerTotals) {
 }
 
 function renderDashboard(csv, statusLabel) {
-  const rows = filterNonEmptyRows(parseCSV(csv));
+  const rows = parseCSV(csv).filter((r) => r.some((c) => c !== ""));
   if (rows.length < 2) throw new Error("No attendance rows found");
 
   const headerRow = rows[0] || [];

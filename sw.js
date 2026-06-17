@@ -1,4 +1,4 @@
-const CACHE = "ghfb-hub-v9";
+const CACHE = "ghfb-hub-v11";
 
 const PRECACHE = [
   "/",
@@ -54,6 +54,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // App modules must update on deploy — stale JS breaks import graphs.
+  if (url.pathname.startsWith("/shared/") || url.pathname.startsWith("/js/")) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
   event.respondWith(staleWhileRevalidate(request));
 });
 
@@ -85,10 +91,7 @@ function staleWhileRevalidate(request) {
       })
       .catch(() => null);
 
-    if (cached) {
-      networkFetch;
-      return cached;
-    }
+    if (cached) return cached;
     return networkFetch.then((res) => res || new Response("", { status: 504 }));
   });
 }

@@ -1,4 +1,5 @@
 import { parseCSV, readCsvCache, fetchCsvRows, clearCsvCache } from "/shared/ghfb-csv.js";
+import { coachApiGet } from "/shared/ghfb-coach-api.js";
 import {
   getDataRows,
   getPlayerDisplayName,
@@ -10,7 +11,6 @@ import {
 import { fetchLiftPlanRows, getTodayLiftPlan, getTodayConditioningPlan } from "/shared/ghfb-lift-plan.js";
 import { escapeHtml } from "/shared/ghfb-dom.js";
 
-const CHECKIN_API = window.GHFB_CHECKIN_API || "/api/checkin";
 const PIN_STORAGE_KEY = "ghfb-coach-pin";
 const CHECKIN_STATE_TTL_MS = 45 * 1000;
 const saveQueue = [];
@@ -225,22 +225,8 @@ function writeCheckInCache(type, data) {
   }
 }
 
-async function apiGet(action, params) {
-  const qs = new URLSearchParams({ action, ...params });
-  const res = await fetch(`${CHECKIN_API}?${qs}`, { cache: "no-store" });
-  const text = await res.text();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(res.ok ? "Invalid API response" : `Check-in API error (${res.status})`);
-  }
-  if (!res.ok && data?.error) throw new Error(data.error);
-  return data;
-}
-
 async function apiToggle(sheetRow) {
-  const data = await apiGet("toggleCheckIn", {
+  const data = await coachApiGet("toggleCheckIn", {
     sheetRow: String(sheetRow),
     sessionType,
     pin: getPin(),
@@ -459,7 +445,7 @@ async function load() {
   try {
     const [rows, apiData] = await Promise.all([
       fetchCsvRows(),
-      apiGet("getCheckInData", { sessionType, pin: getPin() }),
+      coachApiGet("getCheckInData", { sessionType, pin: getPin() }),
     ]);
     if (isStaleLoad(generation)) return;
 

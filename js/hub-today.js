@@ -2,7 +2,8 @@ import { fetchCsvRows } from "/shared/ghfb-csv.js";
 import {
   buildAttendanceSummary,
   describeTodaySessionStatus,
-  getTodaySessionStatus,
+  findTodayPracticeColumnIndex,
+  cellIsMark,
   getTodayLabel,
 } from "/shared/ghfb-attendance.js";
 import { fetchLiftPlanRows, getTodayLiftPlan, getTodayConditioningPlan } from "/shared/ghfb-lift-plan.js";
@@ -107,10 +108,11 @@ function renderPracticeRow(summary, practiceError) {
 
 function renderAttendanceRow(headerRow, dataRows) {
   const status = describeTodaySessionStatus(headerRow);
-  const session = getTodaySessionStatus(headerRow, dataRows);
+  const practiceCol = findTodayPracticeColumnIndex(headerRow);
   let note = "";
-  if (session.practiceCol != null) {
-    note = `Practice check-in ${session.practiceChecked}/${session.total} (${getTodayLabel()})`;
+  if (practiceCol != null && dataRows?.length) {
+    const practiceChecked = dataRows.filter((row) => cellIsMark(row, practiceCol)).length;
+    note = `Practice check-in ${practiceChecked}/${dataRows.length} (${getTodayLabel()})`;
   }
   return renderRow(
     "Attendance",
@@ -121,8 +123,7 @@ function renderAttendanceRow(headerRow, dataRows) {
 
 function renderStatsRow(summary) {
   const momentum = summary.momentumPossible > 0 ? formatPct(summary.momentumRate) : "—";
-  const ironCount =
-    summary.completedTotalPossible > 0 ? String(summary.ironMen.length) : "—";
+  const ironCount = summary.totalPossible > 0 ? String(summary.ironMen.length) : "—";
   const practiceNote =
     summary.practiceParticipation?.practiceCols > 0
       ? `${summary.practiceParticipation.practiceAttended}/${summary.practiceParticipation.rosterSize} marked practice (${summary.practiceParticipation.practiceCols} P columns)`

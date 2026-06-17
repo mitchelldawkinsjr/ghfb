@@ -1,5 +1,5 @@
-import { parseCSV } from "/shared/ghfb-csv.js";
-import { parseHeaderDate, getToday } from "/shared/ghfb-attendance.js";
+import { parseCSV } from "./ghfb-csv.js";
+import { parseHeaderDate, getToday } from "./ghfb-attendance.js";
 
 export const LIFT_PLAN_CSV_URL = "/api/lift-plan.csv";
 export const LIFT_PLAN_CACHE_KEY = "ghfb-lift-plan-csv";
@@ -24,106 +24,98 @@ function findColumnIndex(headers, names) {
   return -1;
 }
 
-/**
- * Read conditioning columns from the same Daily Lift Plan CSV.
- * Expected columns: Date, Coach, and optional CondLabel, CondPhase, CondSession, CondLink.
- */
-export function getTodayConditioningPlan(rows) {
+function findTodayPlanCells(rows, columnNames) {
   if (!rows?.length || rows.length < 2) return null;
 
-  const headers = normalizeHeaders(rows[0]);
-  const dateCol = findColumnIndex(headers, ["date"]);
+  const headers = (rows[0] || []).map((cell) => String(cell ?? "").trim().toLowerCase());
+  const dateCol = headers.indexOf("date");
   if (dateCol < 0) return null;
 
-  const labelCol = findColumnIndex(headers, ["condlabel", "cond label"]);
-  const phaseCol = findColumnIndex(headers, ["condphase", "cond phase"]);
-  const sessionCol = findColumnIndex(headers, ["condsession", "cond session"]);
-  const linkCol = findColumnIndex(headers, ["condlink", "cond link"]);
-  const coachCol = findColumnIndex(headers, ["coach"]);
+  const cols = {};
+  for (const [key, names] of Object.entries(columnNames)) {
+    cols[key] = findColumnIndex(headers, names);
+  }
 
   const today = getToday();
-
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const dateVal = parseHeaderDate(row[dateCol]);
     if (!dateVal || dateVal.getTime() !== today.getTime()) continue;
 
-    const label = labelCol >= 0 ? String(row[labelCol] ?? "").trim() : "";
-    const phase = phaseCol >= 0 ? String(row[phaseCol] ?? "").trim() : "";
-    const session = sessionCol >= 0 ? String(row[sessionCol] ?? "").trim() : "";
-    const customUrl = linkCol >= 0 ? String(row[linkCol] ?? "").trim() : "";
-    const coach = coachCol >= 0 ? String(row[coachCol] ?? "").trim() : "";
-
-    if (!label && !phase && !session && !coach) return null;
-
-    const displayLabel = label || (phase && session ? `${phase} · ${session}` : "") || "Conditioning";
-    return {
-      label: displayLabel,
-      phase,
-      session,
-      coach,
-      url: customUrl || (phase && session ? buildLiftUrl(phase, session) : null),
-      off: false,
-    };
+    const cells = {};
+    for (const [key, idx] of Object.entries(cols)) {
+      cells[key] = idx >= 0 ? String(row[idx] ?? "").trim() : "";
+    }
+    return cells;
   }
 
   return null;
 }
 
+/**
+ * Read conditioning columns from the same Daily Lift Plan CSV.
+ * Expected columns: Date, Coach, and optional CondLabel, CondPhase, CondSession, CondLink.
+ */
+export function getTodayConditioningPlan(rows) {
+  const cells = findTodayPlanCells(rows, {
+    label: ["condlabel", "cond label"],
+    phase: ["condphase", "cond phase"],
+    session: ["condsession", "cond session"],
+    link: ["condlink", "cond link"],
+    coach: ["coach"],
+  });
+  if (!cells) return null;
+
+  const { label, phase, session, link: customUrl, coach } = cells;
+  if (!label && !phase && !session && !coach) return null;
+
+  const displayLabel = label || (phase && session ? `${phase} · ${session}` : "") || "Conditioning";
+  return {
+    label: displayLabel,
+    phase,
+    session,
+    coach,
+    url: customUrl || (phase && session ? buildLiftUrl(phase, session) : null),
+    off: false,
+  };
+}
+
 export function getTodayLiftPlan(rows) {
-  if (!rows?.length || rows.length < 2) return null;
+  const cells = findTodayPlanCells(rows, {
+    label: ["label"],
+    phase: ["phase"],
+    session: ["session"],
+    notes: ["notes"],
+    link: ["liftlink", "lift link", "url"],
+  });
+  if (!cells) return null;
 
-  const headers = normalizeHeaders(rows[0]);
-  const dateCol = findColumnIndex(headers, ["date"]);
-  if (dateCol < 0) return null;
+  const { label, phase, session, notes, link: customUrl } = cells;
+  const displayLabel = label || (phase && session ? `${phase} · ${session}` : "");
+  const isOff =
+    !phase &&
+    !session &&
+    (!displayLabel || /^off$/i.test(displayLabel) || /^no lift/i.test(displayLabel));
 
-  const labelCol = findColumnIndex(headers, ["label"]);
-  const phaseCol = findColumnIndex(headers, ["phase"]);
-  const sessionCol = findColumnIndex(headers, ["session"]);
-  const notesCol = findColumnIndex(headers, ["notes"]);
-  const linkCol = findColumnIndex(headers, ["liftlink", "lift link", "url"]);
-
-  const today = getToday();
-
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    const dateVal = parseHeaderDate(row[dateCol]);
-    if (!dateVal || dateVal.getTime() !== today.getTime()) continue;
-
-    const label = labelCol >= 0 ? String(row[labelCol] ?? "").trim() : "";
-    const phase = phaseCol >= 0 ? String(row[phaseCol] ?? "").trim() : "";
-    const session = sessionCol >= 0 ? String(row[sessionCol] ?? "").trim() : "";
-    const notes = notesCol >= 0 ? String(row[notesCol] ?? "").trim() : "";
-    const customUrl = linkCol >= 0 ? String(row[linkCol] ?? "").trim() : "";
-
-    const displayLabel = label || (phase && session ? `${phase} · ${session}` : "");
-    const isOff =
-      !phase &&
-      !session &&
-      (!displayLabel || /^off$/i.test(displayLabel) || /^no lift/i.test(displayLabel));
-
-    if (isOff) {
-      return {
-        label: displayLabel || "No lift scheduled",
-        phase: "",
-        session: "",
-        notes,
-        url: null,
-        off: true,
-      };
-    }
-
+  if (isOff) {
     return {
-      label: displayLabel || "Lift scheduled",
-      phase,
-      session,
+      label: displayLabel || "No lift scheduled",
+      phase: "",
+      session: "",
       notes,
-      url: customUrl || buildLiftUrl(phase, session),
-      off: false,
+      url: null,
+      off: true,
     };
   }
 
-  return null;
+  return {
+    label: displayLabel || "Lift scheduled",
+    phase,
+    session,
+    notes,
+    url: customUrl || buildLiftUrl(phase, session),
+    off: false,
+  };
 }
 
 export function readLiftPlanCache() {

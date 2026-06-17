@@ -1,5 +1,5 @@
-import { parseCSV } from "/shared/ghfb-csv.js";
-import { parseHeaderDate } from "/shared/ghfb-attendance.js";
+import { parseCSV } from "./ghfb-csv.js";
+import { parseHeaderDate } from "./ghfb-attendance.js";
 
 /** IANA timezone for Eastern Time — automatically EDT (UTC-4) in summer, EST (UTC-5) in winter. */
 const EASTERN_TZ = "America/New_York";
@@ -169,14 +169,6 @@ export function getEndRowOptions(block, blocks, blockIndex, slots) {
     });
   }
   return options;
-}
-
-export function clearPracticeScheduleCache() {
-  try {
-    sessionStorage.removeItem(PRACTICE_SCHEDULE_CACHE_KEY);
-  } catch {
-    /* ignore */
-  }
 }
 
 function forwardFillLabels(dataRows) {
@@ -369,6 +361,14 @@ export function writePracticeScheduleCache(csv) {
     );
   } catch {
     /* ignore quota */
+  }
+}
+
+export function clearPracticeScheduleCache() {
+  try {
+    sessionStorage.removeItem(PRACTICE_SCHEDULE_CACHE_KEY);
+  } catch {
+    /* ignore */
   }
 }
 

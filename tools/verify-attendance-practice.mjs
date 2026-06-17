@@ -8,149 +8,17 @@
  */
 
 import { readFileSync } from "fs";
+import { parseCSV } from "../shared/ghfb-csv.js";
+import {
+  getColumnKind,
+  getValidAttendanceIndexes,
+  getValidPracticeIndexes,
+  isPracticeHeader,
+  parsePracticeHeaderDate,
+} from "../shared/ghfb-attendance.js";
 
 const DEFAULT_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-oEpo0pvk7YAWpv2jAhyqmWeIYVEZRRXliKY6uY-_NGZwE3rl28BG2HSSLtamqfeTLvR5AT8ywh28/pub?gid=585894674&single=true&output=csv";
-
-const ATTENDANCE_START_IDX = 2;
-const SUMMARY_HEADERS = new Set([
-  "Current Total",
-  "Ironman %",
-  "# of sessions this summer",
-  "% required for ironman",
-]);
-
-function parseCSV(text) {
-  const rows = [];
-  let row = [];
-  let value = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const next = text[i + 1];
-
-    if (ch === '"') {
-      if (inQuotes && next === '"') {
-        value += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (!inQuotes && ch === ",") {
-      row.push(value);
-      value = "";
-      continue;
-    }
-
-    if (!inQuotes && (ch === "\n" || ch === "\r")) {
-      if (ch === "\r" && next === "\n") i++;
-      row.push(value);
-      if (row.some((c) => String(c).trim() !== "")) rows.push(row);
-      row = [];
-      value = "";
-      continue;
-    }
-
-    value += ch;
-  }
-
-  if (value.length || row.length) {
-    row.push(value);
-    if (row.some((c) => String(c).trim() !== "")) rows.push(row);
-  }
-
-  return rows;
-}
-
-function parseHeaderDate(value) {
-  const text = String(value ?? "").trim();
-  let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (match) {
-    let year = Number(match[3]);
-    if (year < 100) year += 2000;
-    const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
-    date.setHours(0, 0, 0, 0);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-  match = text.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (match) {
-    const year = new Date().getFullYear();
-    const date = new Date(year, Number(match[1]) - 1, Number(match[2]));
-    date.setHours(0, 0, 0, 0);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-  return null;
-}
-
-function getToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
-
-function isPracticeHeader(header) {
-  const text = String(header ?? "").trim();
-  return /^P(\s+|\s*\d)/i.test(text);
-}
-
-function parsePracticeHeaderDate(header) {
-  const text = String(header ?? "").trim();
-  const direct = text.match(/^P\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*$/i);
-  if (direct) return parseHeaderDate(direct[1]);
-  const embedded = text.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
-  if (embedded) return parseHeaderDate(embedded[1]);
-  return null;
-}
-
-function getColumnKind(header) {
-  const text = String(header ?? "").trim();
-  if (text.toUpperCase() === "C") return "conditioning";
-  if (isPracticeHeader(text)) return "practice";
-  if (parseHeaderDate(text)) return "weightroom";
-  return "other";
-}
-
-function getValidAttendanceIndexes(headers, throughDate = getToday()) {
-  const indexes = [];
-
-  for (let col = ATTENDANCE_START_IDX; col < headers.length; col++) {
-    const header = String(headers[col] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
-
-    const dateVal = parseHeaderDate(header);
-
-    if (dateVal) {
-      if (dateVal > throughDate) break;
-      indexes.push(col);
-
-      const nextHeader = String(headers[col + 1] ?? "").trim();
-      if (nextHeader.toUpperCase() === "C") indexes.push(col + 1);
-    }
-  }
-
-  return indexes;
-}
-
-function getValidPracticeIndexes(headers, throughDate = getToday()) {
-  const indexes = [];
-
-  for (let col = ATTENDANCE_START_IDX; col < headers.length; col++) {
-    const header = String(headers[col] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
-    if (!isPracticeHeader(header)) continue;
-
-    const dateVal = parsePracticeHeaderDate(header);
-    if (dateVal && dateVal > throughDate) continue;
-
-    indexes.push(col);
-  }
-
-  return indexes;
-}
 
 async function loadCsvText() {
   const path = process.argv[2];
