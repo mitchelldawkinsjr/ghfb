@@ -43,7 +43,7 @@ function renderLiftRow(plan, liftError) {
   if (!plan) {
     return renderRow(
       "Lift",
-      `<span class="today-status-info">No row for today in Daily Lift Plan tab</span>`
+      `<span class="today-status-info">Nothing scheduled</span>`
     );
   }
   if (plan.off) {
@@ -107,7 +107,7 @@ function renderPracticeRow(summary, practiceError) {
 }
 
 function renderAttendanceRow(headerRow, dataRows) {
-  const status = describeTodaySessionStatus(headerRow);
+  const status = describeTodaySessionStatus(headerRow, { short: true });
   const practiceCol = findTodayPracticeColumnIndex(headerRow);
   let note = "";
   if (practiceCol != null && dataRows?.length) {
@@ -126,7 +126,7 @@ function renderStatsRow(summary) {
   const ironCount = summary.totalPossible > 0 ? String(summary.ironMen.length) : "—";
   const practiceNote =
     summary.practiceParticipation?.practiceCols > 0
-      ? `${summary.practiceParticipation.practiceAttended}/${summary.practiceParticipation.rosterSize} marked practice (${summary.practiceParticipation.practiceCols} P columns)`
+      ? `${summary.practiceParticipation.practiceAttended}/${summary.practiceParticipation.rosterSize} marked practice`
       : "Live";
   return renderRow(
     "Team",
@@ -176,7 +176,7 @@ async function loadTodayPanel() {
           condPlan: getTodayConditioningPlan(rows),
           error: null,
         }),
-        () => ({ plan: null, condPlan: null, error: "Add Daily Lift Plan tab and publish CSV (see docs)" })
+        () => ({ plan: null, condPlan: null, error: "Lift plan not published" })
       ),
       fetchPracticeScheduleRows().then(
         ({ rows }) => ({

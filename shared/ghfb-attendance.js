@@ -198,7 +198,7 @@ export function findTodayDateColumnIndex(headerRow) {
 }
 
 /** Coach-facing message when today's session column is missing from the sheet. */
-export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow) {
+export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow, { short = false } = {}) {
   const type = String(sessionType).toLowerCase();
   const label = todayLabel || getTodayLabel();
   const dateCol = headerRow ? findTodayDateColumnIndex(headerRow) : null;
@@ -206,6 +206,7 @@ export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow
     `If today should count toward attendance, add a new column in the spreadsheet labeled ${label} (weight room), with a C column immediately to its right (conditioning).`;
 
   if (type === "conditioning" && dateCol != null) {
+    if (short) return `No conditioning today (${label}) · add C column`;
     return (
       `No scheduled conditioning session for today (${label}). ` +
       `The weight room column for ${label} is set up, but the conditioning column (C) is missing. ` +
@@ -214,10 +215,12 @@ export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow
   }
 
   if (type === "weightroom") {
+    if (short) return `No weight room today (${label})`;
     return `No scheduled weight room session for today (${label}). ${addDayHint}`;
   }
 
   if (type === "practice") {
+    if (short) return `No practice column (${label})`;
     return (
       `No practice column for today (${label}). ` +
       `Add a column labeled P ${label} on the attendance sheet. ` +
@@ -225,6 +228,7 @@ export function getSessionNotScheduledMessage(sessionType, todayLabel, headerRow
     );
   }
 
+  if (short) return `Nothing scheduled (${label})`;
   return `No scheduled weight room or conditioning for today (${label}). ${addDayHint}`;
 }
 
@@ -488,7 +492,7 @@ export function computeAtRiskPlayers(ctx) {
 }
 
 /** Human-readable attendance column status for hub/check-in banners. */
-export function describeTodaySessionStatus(headerRow) {
+export function describeTodaySessionStatus(headerRow, { short = false } = {}) {
   const todayLabel = getTodayLabel();
   const wrCol = findSessionColumnIndex(headerRow, "weightroom");
   const condCol = findSessionColumnIndex(headerRow, "conditioning");
@@ -496,17 +500,21 @@ export function describeTodaySessionStatus(headerRow) {
   if (wrCol == null) {
     return {
       level: "warn",
-      message: getSessionNotScheduledMessage("weightroom", todayLabel, headerRow),
+      message: getSessionNotScheduledMessage("weightroom", todayLabel, headerRow, { short }),
     };
   }
   if (condCol == null) {
     return {
       level: "info",
-      message: `Weight room column ready for ${todayLabel}. Conditioning column (C) not set up yet.`,
+      message: short
+        ? `WR ready · C column missing (${todayLabel})`
+        : `Weight room column ready for ${todayLabel}. Conditioning column (C) not set up yet.`,
     };
   }
   return {
     level: "ok",
-    message: `Weight room and conditioning columns ready for ${todayLabel}.`,
+    message: short
+      ? `Ready for ${todayLabel}`
+      : `Weight room and conditioning columns ready for ${todayLabel}.`,
   };
 }
