@@ -1,4 +1,4 @@
-import { fetchCsvRows } from "/shared/ghfb-csv.js";
+import { fetchAttendanceRows } from "/shared/ghfb-csv.js";
 import {
   buildAttendanceSummary,
   describeTodaySessionStatus,
@@ -169,7 +169,7 @@ async function loadTodayPanel() {
 
   try {
     const [attRows, liftResult, practiceResult] = await Promise.all([
-      fetchCsvRows(),
+      fetchAttendanceRows(),
       fetchLiftPlanRows().then(
         (rows) => ({
           plan: getTodayLiftPlan(rows),

@@ -1,6 +1,9 @@
 export const CSV_URL = "/api/attendance.csv";
+export const ATTENDANCE_JSON_URL = "/api/attendance.json";
 export const CSV_CACHE_KEY = "ghfb-attendance-csv";
+export const ATTENDANCE_JSON_CACHE_KEY = "ghfb-attendance-json";
 export const CSV_CACHE_TTL_MS = 3 * 60 * 1000;
+export const ATTENDANCE_JSON_CACHE_TTL_MS = 15 * 1000;
 
 /** Parse published Google Sheets CSV (RFC-style quoted fields). */
 export function parseCSV(text) {
@@ -42,6 +45,21 @@ export function parseCSV(text) {
   return rows;
 }
 
+/** Serialize parsed rows back to CSV (for dashboard cache compatibility). */
+export function rowsToCsvText(rows) {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const value = String(cell ?? "");
+          if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+          return value;
+        })
+        .join(",")
+    )
+    .join("\n");
+}
+
 export function readTimedCache(key, ttlMs) {
   try {
     const raw = sessionStorage.getItem(key);
@@ -74,11 +92,47 @@ export const readCsvCache = () => readTimedCache(CSV_CACHE_KEY, CSV_CACHE_TTL_MS
 export const writeCsvCache = (csv) => writeTimedCache(CSV_CACHE_KEY, csv);
 export const clearCsvCache = () => clearTimedCache(CSV_CACHE_KEY);
 
+export const readAttendanceJsonCache = () =>
+  readTimedCache(ATTENDANCE_JSON_CACHE_KEY, ATTENDANCE_JSON_CACHE_TTL_MS);
+export const writeAttendanceJsonCache = (payload) =>
+  writeTimedCache(ATTENDANCE_JSON_CACHE_KEY, payload);
+export const clearAttendanceJsonCache = () => clearTimedCache(ATTENDANCE_JSON_CACHE_KEY);
+
 export function fetchCsvText() {
   return fetch(CSV_URL, { cache: "no-store" }).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.text();
   });
+}
+
+/** Attendance grid from SQLite (source of truth). Falls back to published CSV. */
+export async function fetchAttendanceRows({ forceRefresh = false } = {}) {
+  if (!forceRefresh) {
+    const cached = readAttendanceJsonCache();
+    if (cached) {
+      try {
+        const payload = JSON.parse(cached);
+        if (payload?.rows?.length) return payload.rows;
+      } catch {
+        clearAttendanceJsonCache();
+      }
+    }
+  }
+
+  try {
+    const res = await fetch(ATTENDANCE_JSON_URL, { cache: "no-store" });
+    if (res.ok) {
+      const payload = await res.json();
+      if (payload?.ok && Array.isArray(payload.rows) && payload.rows.length) {
+        writeAttendanceJsonCache(JSON.stringify(payload));
+        return payload.rows;
+      }
+    }
+  } catch {
+    /* fall through to CSV */
+  }
+
+  return fetchCsvRows();
 }
 
 /** Cached CSV text when fresh; otherwise fetch and store. */

@@ -4,6 +4,9 @@ import {
   writeCsvCache,
   fetchCsvText,
   clearCsvCache,
+  clearAttendanceJsonCache,
+  fetchAttendanceRows,
+  rowsToCsvText,
 } from "/shared/ghfb-csv.js";
 import {
   ATTENDANCE_START_IDX,
@@ -330,7 +333,10 @@ function renderDashboard(csv, statusLabel) {
 
 function startAttendanceLoad() {
   const forceRefresh = new URLSearchParams(window.location.search).get("refresh") === "1";
-  if (forceRefresh) clearCsvCache();
+  if (forceRefresh) {
+    clearCsvCache();
+    clearAttendanceJsonCache();
+  }
 
   const cached = forceRefresh ? null : readCsvCache();
   if (cached) {
@@ -339,10 +345,11 @@ function startAttendanceLoad() {
     } catch (e) {
       console.warn("Cached CSV invalid:", e);
     }
-    fetchCsvText()
-      .then((fresh) => {
-        writeCsvCache(fresh);
-        renderDashboard(fresh, "Updated just now");
+    fetchAttendanceRows({ forceRefresh: true })
+      .then((rows) => {
+        const csvLike = rowsToCsvText(rows);
+        writeCsvCache(csvLike);
+        renderDashboard(csvLike, "Updated just now");
       })
       .catch((err) => {
         console.warn("Background refresh failed:", err);
@@ -352,10 +359,11 @@ function startAttendanceLoad() {
     return;
   }
 
-  fetchCsvText()
-    .then((csv) => {
-      writeCsvCache(csv);
-      renderDashboard(csv, "Updated just now");
+  fetchAttendanceRows({ forceRefresh })
+    .then((rows) => {
+      const csvLike = rowsToCsvText(rows);
+      writeCsvCache(csvLike);
+      renderDashboard(csvLike, "Updated just now");
     })
     .catch((error) => {
       console.error("Error loading CSV:", error);

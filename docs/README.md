@@ -8,7 +8,8 @@ Architecture and flow documentation for the [Godwin Heights Football](https://gh
 | [sitemap.md](./sitemap.md) | Routes, hub links, off-repo artifacts |
 | [sheet-model.md](./sheet-model.md) | Spreadsheet columns and mark conventions |
 | [flows-hub-pwa.md](./flows-hub-pwa.md) | Landing page, today strip, installable PWA |
-| [flows-attendance-dashboard.md](./flows-attendance-dashboard.md) | Read-only analytics from CSV |
+| [flows-attendance-dashboard.md](./flows-attendance-dashboard.md) | Read-only analytics from DB (CSV fallback) |
+| [flows-attendance-db.md](./flows-attendance-db.md) | SQLite source of truth, sync, operations |
 | [flows-coach-check-in.md](./flows-coach-check-in.md) | Coach roll call, API, save queue |
 | [flows-deploy.md](./flows-deploy.md) | GitHub Actions, Docker, Apps Script |
 | [code-map.md](./code-map.md) | Repo modules and maintenance notes |
