@@ -34,9 +34,9 @@ The hub (`index.html`) links team tools in navy/gold styling and includes a **To
 - **Table:** Scrollable roster with session-type row styling and legend.
 - **Needs attention:** Near ironman line, heavy misses (24+), and WR/conditioning split lists.
 
-To point at a different sheet, update the Google `proxy_pass` URL in `deploy/nginx.conf`.
+Attendance data is stored in **SQLite** on the ghfb container (source of truth). The dashboard and hub read **`/api/attendance.json`**; published CSV at **`/api/attendance.csv`** remains as fallback and bootstrap source. Coach check-in writes the DB first and copies marks to the school sheet in the background.
 
-Attendance CSV is fetched via **`/api/attendance.csv`** (nginx proxies Google Sheets with a short server cache).
+See [docs/flows-attendance-db.md](docs/flows-attendance-db.md) for schema, sync, and re-import steps.
 
 ### Daily lift plan (sheet tab)
 
@@ -54,7 +54,7 @@ The **Practice Schedule** tab (`gid=224955206`) is a 5-minute grid (rows 5–31,
 
 **Recommended (school sheet, personal deploy):** Share the school spreadsheet with your personal Gmail as **Editor**, set `SHEET_ID` in `scripts/coach-check-in/Code.gs`, deploy as web app. Full steps: `scripts/coach-check-in/README.md`.
 
-Check-in UX: instant roster from cached CSV, grid stays tappable while marks sync, queued saves, and a threaded server proxy for `/api/checkin`.
+Check-in UX: instant roster from cached attendance grid, grid stays tappable while marks sync, queued saves, DB-first writes with background sheet sync.
 
 ### Install as app (PWA)
 
@@ -65,7 +65,7 @@ The team tools hub is installable — use **Add to Home Screen** on the hub or *
 | Path | Purpose |
 |------|---------|
 | `shared/theme.css` | Navy/gold CSS variables, back link, card tokens |
-| `shared/ghfb-csv.js` | CSV parse, session cache, fetch `/api/attendance.csv` |
+| `shared/ghfb-csv.js` | CSV parse, session cache, fetch `/api/attendance.json` (DB) with CSV fallback |
 | `shared/ghfb-attendance.js` | Sheet column rules, rolling stats, roster rows, at-risk helpers |
 | `shared/ghfb-lift-plan.js` | Daily lift plan CSV fetch and today lookup |
 | `shared/ghfb-practice-schedule.js` | Practice schedule CSV parse, block collapse, now/next |

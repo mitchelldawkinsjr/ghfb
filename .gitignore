@@ -2,3 +2,7 @@
 .env
 *.log
 .venv-icons/
+.local/
+*.db
+__pycache__/
+*.pyc

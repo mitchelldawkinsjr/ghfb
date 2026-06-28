@@ -13,6 +13,13 @@ services:
     restart: unless-stopped
     ports:
       - "${APP_PUBLISH_PORT:-8020}:80"
+    environment:
+      ATTENDANCE_DB_ENABLED: "${ATTENDANCE_DB_ENABLED:-1}"
+      ATTENDANCE_DB_PATH: /data/attendance.db
+      ATTENDANCE_SEASON_NAME: "${ATTENDANCE_SEASON_NAME:-2026 Summer WR & Conditioning}"
+      COACH_PIN: "${COACH_PIN:-}"
+    volumes:
+      - ghfb-data:/data
     networks:
       - proxy
     labels:
@@ -35,3 +42,6 @@ networks:
   proxy:
     external: true
     name: 360ws-network
+
+volumes:
+  ghfb-data:

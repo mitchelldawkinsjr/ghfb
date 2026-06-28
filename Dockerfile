@@ -5,6 +5,7 @@ RUN apk add --no-cache python3 \
 COPY deploy/cache.conf /etc/nginx/conf.d/00-cache.conf
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/checkin_proxy.py /opt/checkin_proxy.py
+COPY server /opt/server
 COPY deploy/start-ghfb.sh /opt/start-ghfb.sh
 RUN chmod +x /opt/start-ghfb.sh /opt/checkin_proxy.py
 COPY *.html /usr/share/nginx/html/

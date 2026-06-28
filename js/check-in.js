@@ -1,4 +1,4 @@
-import { parseCSV, readCsvCache, fetchCsvRows, clearCsvCache } from "/shared/ghfb-csv.js";
+import { parseCSV, readCsvCache, fetchCsvRows, clearCsvCache, clearAttendanceJsonCache, fetchAttendanceRows } from "/shared/ghfb-csv.js";
 import { coachApiGet } from "/shared/ghfb-coach-api.js";
 import {
   getDataRows,
@@ -388,6 +388,7 @@ async function drainSaveQueue() {
         refreshRow(job.sheetRow);
         persistCheckInCache();
         clearCsvCache();
+        clearAttendanceJsonCache();
         dashboardRefreshHint = true;
       } catch (err) {
         pl.checked = pl.serverChecked;
@@ -444,7 +445,7 @@ async function load() {
   syncing = true;
   try {
     const [rows, apiData] = await Promise.all([
-      fetchCsvRows(),
+      fetchAttendanceRows(),
       coachApiGet("getCheckInData", { sessionType, pin: getPin() }),
     ]);
     if (isStaleLoad(generation)) return;
@@ -504,7 +505,7 @@ async function load() {
 
     syncing = false;
     try {
-      const rows = await fetchCsvRows();
+      const rows = await fetchAttendanceRows();
       const shell = buildFromCsv(rows, sessionType);
       loadTodayBanner(rows[0] || [], generation);
       if (shell.ok) {

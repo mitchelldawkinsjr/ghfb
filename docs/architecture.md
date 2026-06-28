@@ -58,15 +58,17 @@ flowchart TB
 flowchart LR
   subgraph write["Write path"]
     CI[check-in.html] --> API[/api/checkin/]
-    API --> GAS2[Apps Script]
-    GAS2 --> S2[(School Sheet)]
+    API --> DB[(SQLite)]
+    DB --> GAS[Apps Script setCheckInMark]
+    GAS --> S2[(School Sheet)]
   end
 
   subgraph read["Read path"]
-    AD[attendance-dashboard.html] --> CSV[/api/attendance.csv/]
-    CSV --> PUB[Published CSV snapshot]
-    PUB --> S2
-    CI --> CSV
+    AD[attendance-dashboard.html] --> JSON[/api/attendance.json/]
+    JSON --> DB
+    AD -.-> CSV[/api/attendance.csv fallback/]
+    CSV -.-> S2
+    CI --> API
   end
 
   Form[Google Form] -.->|legacy / backup| S2
@@ -74,11 +76,12 @@ flowchart LR
 
 | Path | Role |
 |------|------|
-| **Coach check-in** | Fast tap-list; writes `X` marks via Apps Script |
-| **Attendance dashboard** | Analytics only; reads published CSV (cached) |
+| **SQLite (`/data/attendance.db`)** | Source of truth for roster, sessions, and marks |
+| **Coach check-in** | Fast tap-list; writes DB, syncs sheet in background |
+| **Attendance dashboard** | Reads `/api/attendance.json`; CSV is fallback only |
 | **Google Form** | Still linked from hub as alternate entry |
 
-The dashboard lags the sheet by nginx cache (~90s) plus optional browser CSV cache (3 minutes). Check-in writes are immediate on the sheet once each `toggleCheckIn` completes.
+The dashboard reads the DB directly (short cache). Check-in writes are immediate in SQLite; the sheet may lag briefly while the sync outbox drains. Full DB docs: [flows-attendance-db.md](./flows-attendance-db.md).
 
 ## Container runtime
 

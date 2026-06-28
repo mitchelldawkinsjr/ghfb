@@ -41,6 +41,13 @@ function doGet(e) {
         e.parameter.sessionType,
         e.parameter.pin
       );
+    } else if (action === "setCheckInMark") {
+      result = setCheckInMark(
+        e.parameter.sheetRow,
+        e.parameter.sessionType,
+        e.parameter.checked,
+        e.parameter.pin
+      );
     } else if (action === "updatePracticeBlock") {
       result = updatePracticeBlock(
         e.parameter.pin,
@@ -68,6 +75,11 @@ function doPost(e) {
     if (body.action === "toggleCheckIn") {
       return jsonOutput_(
         toggleCheckIn(body.sheetRow, body.sessionType, body.pin)
+      );
+    }
+    if (body.action === "setCheckInMark") {
+      return jsonOutput_(
+        setCheckInMark(body.sheetRow, body.sessionType, body.checked, body.pin)
       );
     }
     if (body.action === "updatePracticeBlock") {
@@ -152,6 +164,34 @@ function toggleCheckIn(sheetRow, sessionType, pin) {
   cell.setValue(next);
 
   return { ok: true, sheetRow: row, checked: next === "X" };
+}
+
+/** Set attendance mark explicitly (used when SQLite is source of truth). */
+function setCheckInMark(sheetRow, sessionType, checked, pin) {
+  verifyPin_(pin);
+  var sheet = getSheet_();
+  var sessionCol = findSessionColumn_(sheet, sessionType);
+  if (!sessionCol) {
+    throw new Error(
+      sessionNotScheduledMessage_(sessionType, getTodayHeaderCandidates_()[0], sheet)
+    );
+  }
+
+  var row = Number(sheetRow);
+  if (!row || row < 2) throw new Error("Invalid player row.");
+
+  var wantChecked =
+    checked === true ||
+    checked === 1 ||
+    String(checked != null ? checked : "")
+      .trim()
+      .toLowerCase() === "true" ||
+    String(checked != null ? checked : "").trim() === "1";
+
+  var next = wantChecked ? "X" : "";
+  sheet.getRange(row, sessionCol).setValue(next);
+
+  return { ok: true, sheetRow: row, checked: wantChecked };
 }
 
 function jsonOutput_(obj) {
