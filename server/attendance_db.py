@@ -316,14 +316,11 @@ class AttendanceDB:
         mark_map = {
             (int(row["player_id"]), int(row["session_column_id"])): True for row in marks
         }
+        ordered_sessions = sorted(sessions, key=lambda s: int(s["col_index"]))
+
         header = ["First name", "Last name"]
-        max_col = max((int(s["col_index"]) for s in sessions), default=ATTENDANCE_START_IDX - 1)
-        for col_index in range(ATTENDANCE_START_IDX, max_col + 1):
-            label = next(
-                (str(s["header_label"]) for s in sessions if int(s["col_index"]) == col_index),
-                "",
-            )
-            header.append(label)
+        for session in ordered_sessions:
+            header.append(str(session["header_label"]))
 
         pct = round(float(season["ironman_threshold_rate"]) * 100, 2)
         header.extend(
@@ -338,16 +335,10 @@ class AttendanceDB:
         body: list[list[str]] = [header]
         for player in players:
             row = [str(player["first_name"]), str(player["last_name"])]
-            for col_index in range(ATTENDANCE_START_IDX, max_col + 1):
-                session = next(
-                    (s for s in sessions if int(s["col_index"]) == col_index), None
-                )
-                if not session:
-                    row.append("")
-                    continue
+            for session in ordered_sessions:
                 key = (int(player["id"]), int(session["id"]))
                 row.append("X" if mark_map.get(key) else "")
-            row.extend(["", "", str(len(sessions)), f"{pct:g}%"])
+            row.extend(["", "", str(len(ordered_sessions)), f"{pct:g}%"])
             body.append(row)
         return body
 
@@ -484,13 +475,24 @@ class AttendanceDB:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def mark_synced(self, outbox_id: int, error: str | None = None) -> None:
+    def mark_synced(self, outbox_id: int) -> None:
         with self.connect() as conn:
             conn.execute(
                 """
                 UPDATE sheet_sync_outbox
-                SET synced_at = datetime('now'), error = ?
+                SET synced_at = datetime('now'), error = NULL
                 WHERE id = ?
+                """,
+                (outbox_id,),
+            )
+
+    def record_sync_error(self, outbox_id: int, error: str) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE sheet_sync_outbox
+                SET error = ?
+                WHERE id = ? AND synced_at IS NULL
                 """,
                 (error, outbox_id),
             )

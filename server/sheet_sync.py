@@ -42,7 +42,7 @@ def sync_pending_marks(db: AttendanceDB, pin: str = "") -> dict[str, Any]:
             synced += 1
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, RuntimeError) as err:
             message = str(err)
-            db.mark_synced(int(job["id"]), error=message)
+            db.record_sync_error(int(job["id"]), message)
             errors.append(message)
 
     return {"ok": True, "synced": synced, "attempted": len(jobs), "errors": errors[:5]}
