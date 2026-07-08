@@ -60,6 +60,36 @@ class AttendanceDbTests(unittest.TestCase):
         parsed = parse_header_date("6/9/2026")
         self.assertEqual(parsed, date(2026, 6, 9))
 
+    def test_export_compacts_sparse_column_indexes(self) -> None:
+        season_id = self.db.ensure_season()
+        with self.db.connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO players (season_id, first_name, last_name, sheet_row) VALUES (?, ?, ?, ?)",
+                (season_id, "Alex", "Smith", 2),
+            )
+            player_id = int(cur.lastrowid)
+            for col_index, label, session_type, session_date in [
+                (4, "6/1", "weightroom", "2026-06-01"),
+                (5, "C", "conditioning", "2026-06-01"),
+            ]:
+                conn.execute(
+                    """
+                    INSERT INTO session_columns
+                        (season_id, col_index, header_label, session_type, session_date, sheet_col)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (season_id, col_index, label, session_type, session_date, col_index + 1),
+                )
+            session_id = int(conn.execute("SELECT id FROM session_columns LIMIT 1").fetchone()[0])
+            conn.execute(
+                "INSERT INTO attendance_marks (player_id, session_column_id, present) VALUES (?, ?, 1)",
+                (player_id, session_id),
+            )
+
+        grid = self.db.export_grid_rows()
+        self.assertEqual(grid[0][:4], ["First name", "Last name", "6/1", "C"])
+        self.assertEqual(grid[1][2], "X")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,7 +21,7 @@ if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
 from attendance_db import AttendanceDB, DEFAULT_SEASON  # noqa: E402
-from csv_import import bootstrap_from_csv  # noqa: E402
+from csv_import import bootstrap_from_csv, fetch_attendance_csv  # noqa: E402
 from sheet_sync import sync_pending_marks  # noqa: E402
 
 TARGET = os.environ.get(
@@ -66,9 +66,11 @@ def queue_sheet_sync(pin: str = "") -> None:
 
     def _run() -> None:
         try:
-            sync_pending_marks(get_db(), pin=pin)
-        except Exception:
-            pass
+            result = sync_pending_marks(get_db(), pin=pin)
+            if result.get("errors"):
+                print("sheet sync errors:", result["errors"], flush=True)
+        except Exception as err:
+            print("sheet sync failed:", err, flush=True)
 
     threading.Thread(target=_run, daemon=True).start()
 
@@ -139,6 +141,23 @@ class Handler(BaseHTTPRequestHandler):
             },
             cache_control="public, max-age=15",
         )
+
+    def _attendance_csv(self):
+        try:
+            text = fetch_attendance_csv()
+        except Exception as err:
+            self._json_response(
+                {"ok": False, "error": str(err)},
+                status=502,
+            )
+            return
+        body = text.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Cache-Control", "public, max-age=60")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
 
     def _attendance_import(self, body: dict):
         if not DB_ENABLED:
@@ -235,6 +254,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path in {"/attendance.json", "/attendance.json/"}:
             self._attendance_grid()
+            return
+        if path in {"/attendance.csv", "/attendance.csv/"}:
+            self._attendance_csv()
             return
 
         params = self._query_params()

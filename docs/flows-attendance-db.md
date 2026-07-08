@@ -25,7 +25,7 @@ flowchart LR
 |------|------|
 | **SQLite** | Source of truth for roster, session columns, and marks |
 | **Coach check-in** | Reads/writes via `/api/checkin` → Python sidecar → SQLite |
-| **Dashboard / hub** | Reads `/api/attendance.json` (15s cache); falls back to published CSV |
+| **Dashboard / hub** | Reads `/api/attendance.json` (15s cache); falls back to published CSV via sidecar (follows Google redirects) |
 | **Google Sheet** | Secondary copy via `setCheckInMark`; still used for manual edits until fully migrated |
 
 ## Schema

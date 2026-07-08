@@ -98,7 +98,8 @@ export function getValidAttendanceIndexes(
 
   for (let col = attendanceStartIdx; col < headers.length; col++) {
     const header = String(headers[col] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (SUMMARY_HEADERS.has(header)) break;
+    if (!header) continue;
 
     const dateVal = parseHeaderDate(header);
 
@@ -128,7 +129,8 @@ export function getValidPracticeIndexes(
 
   for (let col = attendanceStartIdx; col < headers.length; col++) {
     const header = String(headers[col] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (SUMMARY_HEADERS.has(header)) break;
+    if (!header) continue;
     if (!isPracticeHeader(header)) continue;
 
     const dateVal = parsePracticeHeaderDate(header);
@@ -146,7 +148,8 @@ export function findTodayPracticeColumnIndex(headerRow) {
 
   for (let col = ATTENDANCE_START_IDX; col < headerRow.length; col++) {
     const header = String(headerRow[col] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (SUMMARY_HEADERS.has(header)) break;
+    if (!header) continue;
     if (!isPracticeHeader(header)) continue;
 
     const dateVal = parsePracticeHeaderDate(header);
@@ -166,7 +169,8 @@ export function findSessionColumnIndex(headerRow, sessionType) {
 
   for (let col = ATTENDANCE_START_IDX; col < headerRow.length; col++) {
     const header = String(headerRow[col] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (SUMMARY_HEADERS.has(header)) break;
+    if (!header) continue;
 
     const dateVal = parseHeaderDate(header);
     if (!dateVal || dateVal > today) continue;
@@ -188,7 +192,8 @@ export function findTodayDateColumnIndex(headerRow) {
 
   for (let col = ATTENDANCE_START_IDX; col < headerRow.length; col++) {
     const header = String(headerRow[col] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (SUMMARY_HEADERS.has(header)) break;
+    if (!header) continue;
 
     const dateVal = parseHeaderDate(header);
     if (!dateVal || dateVal > today) continue;
@@ -266,7 +271,8 @@ export function getTableColumnIndexes(headerRow) {
   const cols = [];
   for (let idx = 0; idx < headerRow.length; idx++) {
     const header = String(headerRow[idx] ?? "").trim();
-    if (!header || SUMMARY_HEADERS.has(header)) break;
+    if (SUMMARY_HEADERS.has(header)) break;
+    if (!header) continue;
     if (!hidden.has(idx)) cols.push(idx);
   }
   return cols;

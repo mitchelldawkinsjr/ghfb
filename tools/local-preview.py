@@ -19,7 +19,7 @@ if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 
 from attendance_db import AttendanceDB, DEFAULT_SEASON  # noqa: E402
-from csv_import import bootstrap_from_csv  # noqa: E402
+from csv_import import bootstrap_from_csv, fetch_attendance_csv  # noqa: E402
 
 PORT = int(os.environ.get("GHFB_PREVIEW_PORT", "8765"))
 CHECKIN_TARGET = os.environ.get(
@@ -54,9 +54,6 @@ PROXIES = {
     "/api/practice-schedule.csv": (
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vRySfoBRMxX7GG1W32Kjccmv83429tkhEPbdHdf09xaAjNBu0Ztqh11FF6MUbGkD2DppxK_PYTMzSkT/pub?gid=224955206&single=true&output=csv"
     ),
-    "/api/attendance.csv": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-oEpo0pvk7YAWpv2jAhyqmWeIYVEZRRXliKY6uY-_NGZwE3rl28BG2HSSLtamqfeTLvR5AT8ywh28/pub?gid=585894674&single=true&output=csv"
-    ),
     "/api/lift-plan.csv": (
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-oEpo0pvk7YAWpv2jAhyqmWeIYVEZRRXliKY6uY-_NGZwE3rl28BG2HSSLtamqfeTLvR5AT8ywh28/pub?gid=1599839883&single=true&output=csv"
     ),
@@ -74,6 +71,9 @@ class PreviewHandler(http.server.SimpleHTTPRequestHandler):
             return
         if path == "/api/attendance.json":
             self.handle_attendance_json()
+            return
+        if path == "/api/attendance.csv":
+            self.handle_attendance_csv()
             return
         upstream = PROXIES.get(path)
         if upstream:
@@ -94,6 +94,22 @@ class PreviewHandler(http.server.SimpleHTTPRequestHandler):
             return
         rows = get_db().export_grid_rows(season_name=SEASON_NAME)
         self.send_json({"ok": True, "source": "db", "rows": rows})
+
+    def handle_attendance_csv(self) -> None:
+        try:
+            data = fetch_attendance_csv().encode("utf-8")
+        except Exception as err:
+            body = f"Proxy error: {err}".encode("utf-8")
+            self.send_response(502)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
 
     def handle_attendance_import(self) -> None:
         length = int(self.headers.get("Content-Length", 0))
